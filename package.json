@@ -28,6 +28,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@arbitrum/nitro-contracts": "^3.2.0",
     "@types/node": "^25.6.0",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4"
