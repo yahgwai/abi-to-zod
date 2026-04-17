@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { abiToZodSchema, canonicalSignature, type Abi } from './abi.js';
+import { abiToZod, canonicalSignature, type Abi } from './abi.js';
 import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
 import { parseType } from './type-parser.js';
 import { type AbiParameter } from './build.js';
@@ -67,12 +67,12 @@ function runFixture(relPath: string) {
       }
     });
 
-    it('resolves every function via abiToZodSchema(sig)', () => {
+    it('resolves every function via abiToZod(sig)', () => {
       for (const f of functions) {
         const sig = canonicalSignature(f);
         expect(
-          () => abiToZodSchema(abi, sig),
-          `abiToZodSchema failed for ${sig}`,
+          () => abiToZod(abi, sig),
+          `abiToZod failed for ${sig}`,
         ).not.toThrow();
       }
     });

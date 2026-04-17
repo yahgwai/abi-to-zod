@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { abiToZodSchema, canonicalSignature, type Abi } from './abi.js';
+import { abiToZod, canonicalSignature, type Abi } from './abi.js';
 
 const simpleAbi: Abi = [
   {
@@ -132,9 +132,9 @@ describe('canonicalSignature', () => {
   });
 });
 
-describe('abiToZodSchema', () => {
+describe('abiToZod', () => {
   it('resolves unambiguous name', () => {
-    const s = abiToZodSchema(simpleAbi, 'transfer');
+    const s = abiToZod(simpleAbi, 'transfer');
     expect(s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
       100n,
@@ -142,27 +142,27 @@ describe('abiToZodSchema', () => {
   });
 
   it('resolves explicit signature', () => {
-    const s = abiToZodSchema(simpleAbi, 'balanceOf(address)');
+    const s = abiToZod(simpleAbi, 'balanceOf(address)');
     expect(s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     ]);
   });
 
   it('throws on unknown name', () => {
-    expect(() => abiToZodSchema(simpleAbi, 'unknown')).toThrow(/No function named/);
+    expect(() => abiToZod(simpleAbi, 'unknown')).toThrow(/No function named/);
   });
 
   it('throws on unknown signature', () => {
-    expect(() => abiToZodSchema(simpleAbi, 'transfer(uint256)')).toThrow(/No function found/);
+    expect(() => abiToZod(simpleAbi, 'transfer(uint256)')).toThrow(/No function found/);
   });
 
   it('throws on ambiguous name', () => {
-    expect(() => abiToZodSchema(overloadedAbi, 'foo')).toThrow(/Ambiguous/);
+    expect(() => abiToZod(overloadedAbi, 'foo')).toThrow(/Ambiguous/);
   });
 
   it('resolves overloads via full signature', () => {
-    const sUint = abiToZodSchema(overloadedAbi, 'foo(uint256)');
-    const sAddr = abiToZodSchema(overloadedAbi, 'foo(address)');
+    const sUint = abiToZod(overloadedAbi, 'foo(uint256)');
+    const sAddr = abiToZod(overloadedAbi, 'foo(address)');
     expect(sUint.parse(['42'])).toEqual([42n]);
     expect(sAddr.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -171,16 +171,16 @@ describe('abiToZodSchema', () => {
 
   it('normalizes uint alias in query signature', () => {
     const abi: Abi = [{ type: 'function', name: 'foo', inputs: [{ name: 'a', type: 'uint256' }] }];
-    const s = abiToZodSchema(abi, 'foo(uint)');
+    const s = abiToZod(abi, 'foo(uint)');
     expect(s.parse(['1'])).toEqual([1n]);
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    expect(() => abiToZodSchema(simpleAbi, 'Transfer')).toThrow(/No function named/);
+    expect(() => abiToZod(simpleAbi, 'Transfer')).toThrow(/No function named/);
   });
 
   it('handles zero-input functions via signature', () => {
-    const s = abiToZodSchema(overloadedAbi, 'bar()');
+    const s = abiToZod(overloadedAbi, 'bar()');
     expect(s.parse([])).toEqual([]);
   });
 });

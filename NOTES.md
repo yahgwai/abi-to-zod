@@ -89,7 +89,7 @@ provide a full signature. Matches viem's behavior.
 ### Non-function entries ignored
 
 Events, errors, constructor, fallback, and receive entries are silently
-filtered out of the lookup space. This means `abiToZodSchema(abi, "Transfer")`
+filtered out of the lookup space. This means `abiToZod(abi, "Transfer")`
 throws "No function named Transfer" even though an event named `Transfer`
 exists. Reasonable: this library is input-schema-only, so non-function
 entries aren't in scope.
@@ -104,7 +104,7 @@ Four tests per fixture:
 2. `parses placeholder args for every function` — placeholder args are
    generated from the input types and `schema.parse` is invoked, asserting
    success. Covers runtime validation of every type encountered.
-3. `resolves every function via abiToZodSchema(sig)` — confirms the
+3. `resolves every function via abiToZod(sig)` — confirms the
    canonical-signature lookup path works end-to-end.
 4. `rejects wrong-arity inputs` — calls `schema.parse` with one fewer arg
    and expects failure. Verifies the schema actually validates, rather

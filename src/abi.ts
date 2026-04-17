@@ -48,7 +48,7 @@ function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   return out;
 }
 
-export function abiToZodSchema(abi: Abi, nameOrSignature: string) {
+export function abiToZod(abi: Abi, nameOrSignature: string) {
   const functions = filterFunctions(abi);
 
   if (nameOrSignature.includes('(')) {
