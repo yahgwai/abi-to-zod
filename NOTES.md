@@ -164,7 +164,7 @@ Dev: `typescript`, `vitest`, `@types/node`, `@arbitrum/nitro-contracts`.
 src/type-parser.test.ts        12 tests
 src/primitives.test.ts         36 tests
 src/primitives-source.test.ts  15 tests
-src/primitives-spec.test.ts    26 tests
+src/primitives-spec.test.ts     8 tests
 src/build.test.ts              20 tests
 src/build-source.test.ts       16 tests
 src/function.test.ts            6 tests
@@ -174,7 +174,7 @@ src/codegen.test.ts            33 tests
 src/cli.test.ts                 3 tests
 src/golden.test.ts             25 tests
 -----------------------------------------
-Total                         305 tests (all passing)
+Total                         287 tests (all passing)
 ```
 
 ## Phase 8 — codegen
@@ -297,3 +297,15 @@ the zod schema; `specToSource` omits them — matching the plan's
 "customise once" output format where the user adds their own messages
 on the generated file. No drift: the message lives once in the spec,
 each interpreter decides whether to consume it.
+
+### Spec is typed as [RootOp, ...ChainOp[]]
+
+First pass had `Spec = readonly Op[]` with `if (!s) throw` guards in
+every chain op to satisfy `z.ZodType | undefined`. Tightened to a
+tuple type: the first element is a root op (`string` / `boolean`) that
+produces the initial schema; the rest are chain ops that take a prior
+schema as input. The interpreters split into `applyRoot` + `applyChainZod`
+(and the source equivalents), each with its own exhaustiveness check,
+so adding a new RootOp or ChainOp variant must update both paths or
+fail to compile. Drops the undefined-schema guards and the empty-spec
+runtime check.

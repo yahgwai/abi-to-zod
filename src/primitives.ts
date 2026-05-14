@@ -2,17 +2,21 @@ import { z } from 'zod';
 
 type Hex = `0x${string}`;
 
+// BoundExpr carries the bigint twice — once as a value the runtime refine
+// uses directly, once as a source expression codegen renders verbatim.
+// Two adjacent fields in one place is the deliberate trade for readable
+// generated output (`(1n << 256n) - 1n` instead of the resolved literal).
+// Cross-checked per width in primitives-spec.test.ts.
 type BoundExpr = {
-  // Runtime value used by specToZod's refine predicate.
   readonly value: bigint;
-  // Source expression rendered by specToSource (e.g. `(1n << 256n) - 1n`).
-  // Held alongside the value so both interpreters agree on what the bound is.
   readonly source: string;
 };
 
-type Op =
+type RootOp =
   | { readonly op: 'string' }
-  | { readonly op: 'boolean' }
+  | { readonly op: 'boolean' };
+
+type ChainOp =
   | { readonly op: 'regex'; readonly pattern: RegExp; readonly message?: string }
   | { readonly op: 'transformBigInt' }
   | { readonly op: 'transformHex' }
@@ -23,90 +27,87 @@ type Op =
       readonly message?: string;
     };
 
-type Spec = readonly Op[];
+type Spec = readonly [RootOp, ...ChainOp[]];
 
-function specToZod(spec: Spec): z.ZodType {
-  let s: z.ZodType | undefined;
-  for (const op of spec) {
-    switch (op.op) {
-      case 'string':
-        s = z.string();
-        break;
-      case 'boolean':
-        s = z.boolean();
-        break;
-      case 'regex': {
-        if (!s) throw new Error('regex op requires a prior schema');
-        s = (s as z.ZodString).regex(op.pattern, op.message);
-        break;
-      }
-      case 'transformBigInt': {
-        if (!s) throw new Error('transformBigInt op requires a prior schema');
-        s = s.transform((v: unknown) => BigInt(v as string));
-        break;
-      }
-      case 'transformHex': {
-        if (!s) throw new Error('transformHex op requires a prior schema');
-        s = s.transform((v: unknown): Hex => v as Hex);
-        break;
-      }
-      case 'refineBigIntBound': {
-        if (!s) throw new Error('refineBigIntBound op requires a prior schema');
-        const min = op.min?.value;
-        const max = op.max?.value;
-        s = s.refine(
-          (n: unknown) => {
-            const b = n as bigint;
-            return (min === undefined || b >= min) && (max === undefined || b <= max);
-          },
-          op.message ? { message: op.message } : undefined,
-        );
-        break;
-      }
-      default: {
-        const _exhaustive: never = op;
-        throw new Error(`unhandled spec op: ${(_exhaustive as { op: string }).op}`);
-      }
+function applyRoot(root: RootOp): z.ZodType {
+  switch (root.op) {
+    case 'string':
+      return z.string();
+    case 'boolean':
+      return z.boolean();
+    default: {
+      const _: never = root;
+      throw new Error(`unhandled root op: ${(_ as { op: string }).op}`);
     }
   }
-  if (!s) throw new Error('empty spec');
-  return s;
 }
 
-function specToSource(spec: Spec): string {
-  let s = '';
-  for (const op of spec) {
-    switch (op.op) {
-      case 'string':
-        s = 'z.string()';
-        break;
-      case 'boolean':
-        s = 'z.boolean()';
-        break;
-      case 'regex':
-        s = `${s}.regex(${op.pattern.toString()})`;
-        break;
-      case 'transformBigInt':
-        s = `${s}.transform((v) => BigInt(v))`;
-        break;
-      case 'transformHex':
-        s = `${s}.transform((v) => v as \`0x\${string}\`)`;
-        break;
-      case 'refineBigIntBound': {
-        const checks: string[] = [];
-        if (op.min) checks.push(`n >= ${op.min.source}`);
-        if (op.max) checks.push(`n <= ${op.max.source}`);
-        s = `${s}.refine((n) => ${checks.join(' && ')})`;
-        break;
-      }
-      default: {
-        const _exhaustive: never = op;
-        throw new Error(`unhandled spec op: ${(_exhaustive as { op: string }).op}`);
-      }
+function applyChainZod(s: z.ZodType, op: ChainOp): z.ZodType {
+  switch (op.op) {
+    case 'regex':
+      return (s as z.ZodString).regex(op.pattern, op.message);
+    case 'transformBigInt':
+      return s.transform((v: unknown) => BigInt(v as string));
+    case 'transformHex':
+      return s.transform((v: unknown): Hex => v as Hex);
+    case 'refineBigIntBound': {
+      const min = op.min?.value;
+      const max = op.max?.value;
+      return s.refine(
+        (n: unknown) => {
+          const b = n as bigint;
+          return (min === undefined || b >= min) && (max === undefined || b <= max);
+        },
+        op.message ? { message: op.message } : undefined,
+      );
+    }
+    default: {
+      const _: never = op;
+      throw new Error(`unhandled chain op: ${(_ as { op: string }).op}`);
     }
   }
-  if (!s) throw new Error('empty spec');
-  return s;
+}
+
+function rootSource(root: RootOp): string {
+  switch (root.op) {
+    case 'string':
+      return 'z.string()';
+    case 'boolean':
+      return 'z.boolean()';
+    default: {
+      const _: never = root;
+      throw new Error(`unhandled root op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function chainSource(s: string, op: ChainOp): string {
+  switch (op.op) {
+    case 'regex':
+      return `${s}.regex(${op.pattern.toString()})`;
+    case 'transformBigInt':
+      return `${s}.transform((v) => BigInt(v))`;
+    case 'transformHex':
+      return `${s}.transform((v) => v as \`0x\${string}\`)`;
+    case 'refineBigIntBound': {
+      const checks: string[] = [];
+      if (op.min) checks.push(`n >= ${op.min.source}`);
+      if (op.max) checks.push(`n <= ${op.max.source}`);
+      return `${s}.refine((n) => ${checks.join(' && ')})`;
+    }
+    default: {
+      const _: never = op;
+      throw new Error(`unhandled chain op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function specToZod([root, ...chain]: Spec): z.ZodType {
+  return chain.reduce(applyChainZod, applyRoot(root));
+}
+
+function specToSource([root, ...chain]: Spec): string {
+  return chain.reduce(chainSource, rootSource(root));
 }
 
 function uintBound(bits: number): BoundExpr {
@@ -258,8 +259,3 @@ export function primitiveSource(base: string): string {
 export function primitiveConstName(base: string): string {
   return dispatchPrimitive<string>(base, CONST_NAME_HANDLERS);
 }
-
-// Exported for direct testing of the interpreters at the Op level. Not part
-// of the public API surface — drift between the two interpreters is the
-// thing the spec design exists to prevent, so these are tested directly.
-export const __testing = { specToZod, specToSource };
