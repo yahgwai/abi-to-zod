@@ -5,10 +5,17 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "abi-to-zod": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen.d.ts",
+      "import": "./dist/codegen.js"
     }
   },
   "files": [
@@ -16,6 +23,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "postbuild": "chmod +x dist/cli.js",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
