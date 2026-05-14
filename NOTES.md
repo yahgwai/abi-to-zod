@@ -164,6 +164,7 @@ Dev: `typescript`, `vitest`, `@types/node`, `@arbitrum/nitro-contracts`.
 src/type-parser.test.ts        12 tests
 src/primitives.test.ts         36 tests
 src/primitives-source.test.ts  15 tests
+src/primitives-spec.test.ts     8 tests
 src/build.test.ts              20 tests
 src/build-source.test.ts       16 tests
 src/function.test.ts            6 tests
@@ -173,7 +174,7 @@ src/codegen.test.ts            33 tests
 src/cli.test.ts                 3 tests
 src/golden.test.ts             25 tests
 -----------------------------------------
-Total                         279 tests (all passing)
+Total                         287 tests (all passing)
 ```
 
 ## Phase 8 — codegen
@@ -241,3 +242,70 @@ loses `node:*` and `process`. Added `"types": ["node"]` to fix the build.
 fixture tree. `scripts/regenerate-golden.mjs` rewrites them; `npm run
 regenerate:golden` builds first then runs the script. `golden.test.ts`
 regenerates in memory and asserts byte-equal to catch accidental drift.
+
+## Phase 9 — spec-driven primitives
+
+`SCHEMA_HANDLERS` and `SOURCE_HANDLERS` were two parallel tables, one per
+primitive variant. Tweaking validation rules meant editing both and
+relying on tests to catch the asymmetry. Replaced with a single
+`SPEC_HANDLERS` table that produces an `Op` list per variant; two
+interpreters (`specToZod`, `specToSource`) consume the same spec.
+
+### Structural drift prevention
+
+Both interpreters end with `const _exhaustive: never = op`. Adding a new
+`Op` variant without handling it in both fails to compile (`{ op: 'X' }
+is not assignable to type 'never'`). The drift between runtime and
+codegen is now bounded by the `Op` union's vocabulary: as long as new
+validation patterns are expressed as new ops, both paths stay in sync by
+construction.
+
+### What the spec covers vs doesn't
+
+Covered: every primitive currently shipped (string, boolean, regex,
+transformBigInt, transformHex, refineBigIntBound). Future features
+named in `FUTURE.md` that fit the existing ops (hex-input for ints =
+regex change) need no new vocabulary. Features that don't fit (EIP-55
+conditional checksum, coercion modes) require extending the `Op` union
+— a deliberate vocabulary decision rather than a silent fork between the
+two paths.
+
+### BoundExpr keeps value + source
+
+`refineBigIntBound` carries `{ value: bigint, source: string }` for each
+bound — value drives the runtime predicate, source drives codegen
+output. Two adjacent fields in one place vs the previous "two handler
+bodies in two files." A dedicated test cross-checks each width: evaluate
+`source` as JS, compare to `value`. So even the localized drift surface
+(value vs source) is pinned.
+
+### What the spec doesn't cover
+
+The walker (tuple / array / suffix logic) in `buildSchema` vs
+`renderSchemaSource` is still parallel. Considered abstracting into a
+generic `walkParam<T>(ops)` but the indent state needed for codegen's
+pretty-printed tuples doesn't fit a stateless walker cleanly, and the
+recursion structure is small (6-line shape, fixed by Solidity's
+grammar). Drift risk there is low and the existing tuple/array tests in
+`build-source.test.ts` exercise it directly. Documented here as a
+deliberate non-goal.
+
+### Error messages
+
+Spec ops carry optional `message` strings. `specToZod` attaches them to
+the zod schema; `specToSource` omits them — matching the plan's
+"customise once" output format where the user adds their own messages
+on the generated file. No drift: the message lives once in the spec,
+each interpreter decides whether to consume it.
+
+### Spec is typed as [RootOp, ...ChainOp[]]
+
+First pass had `Spec = readonly Op[]` with `if (!s) throw` guards in
+every chain op to satisfy `z.ZodType | undefined`. Tightened to a
+tuple type: the first element is a root op (`string` / `boolean`) that
+produces the initial schema; the rest are chain ops that take a prior
+schema as input. The interpreters split into `applyRoot` + `applyChainZod`
+(and the source equivalents), each with its own exhaustiveness check,
+so adding a new RootOp or ChainOp variant must update both paths or
+fail to compile. Drops the undefined-schema guards and the empty-spec
+runtime check.

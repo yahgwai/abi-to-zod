@@ -2,6 +2,126 @@ import { z } from 'zod';
 
 type Hex = `0x${string}`;
 
+// BoundExpr carries the bigint twice — once as a value the runtime refine
+// uses directly, once as a source expression codegen renders verbatim.
+// Two adjacent fields in one place is the deliberate trade for readable
+// generated output (`(1n << 256n) - 1n` instead of the resolved literal).
+// Cross-checked per width in primitives-spec.test.ts.
+type BoundExpr = {
+  readonly value: bigint;
+  readonly source: string;
+};
+
+type RootOp =
+  | { readonly op: 'string' }
+  | { readonly op: 'boolean' };
+
+type ChainOp =
+  | { readonly op: 'regex'; readonly pattern: RegExp; readonly message?: string }
+  | { readonly op: 'transformBigInt' }
+  | { readonly op: 'transformHex' }
+  | {
+      readonly op: 'refineBigIntBound';
+      readonly min?: BoundExpr;
+      readonly max?: BoundExpr;
+      readonly message?: string;
+    };
+
+type Spec = readonly [RootOp, ...ChainOp[]];
+
+function applyRoot(root: RootOp): z.ZodType {
+  switch (root.op) {
+    case 'string':
+      return z.string();
+    case 'boolean':
+      return z.boolean();
+    default: {
+      const _: never = root;
+      throw new Error(`unhandled root op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function applyChainZod(s: z.ZodType, op: ChainOp): z.ZodType {
+  switch (op.op) {
+    case 'regex':
+      return (s as z.ZodString).regex(op.pattern, op.message);
+    case 'transformBigInt':
+      return s.transform((v: unknown) => BigInt(v as string));
+    case 'transformHex':
+      return s.transform((v: unknown): Hex => v as Hex);
+    case 'refineBigIntBound': {
+      const min = op.min?.value;
+      const max = op.max?.value;
+      return s.refine(
+        (n: unknown) => {
+          const b = n as bigint;
+          return (min === undefined || b >= min) && (max === undefined || b <= max);
+        },
+        op.message ? { message: op.message } : undefined,
+      );
+    }
+    default: {
+      const _: never = op;
+      throw new Error(`unhandled chain op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function rootSource(root: RootOp): string {
+  switch (root.op) {
+    case 'string':
+      return 'z.string()';
+    case 'boolean':
+      return 'z.boolean()';
+    default: {
+      const _: never = root;
+      throw new Error(`unhandled root op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function chainSource(s: string, op: ChainOp): string {
+  switch (op.op) {
+    case 'regex':
+      return `${s}.regex(${op.pattern.toString()})`;
+    case 'transformBigInt':
+      return `${s}.transform((v) => BigInt(v))`;
+    case 'transformHex':
+      return `${s}.transform((v) => v as \`0x\${string}\`)`;
+    case 'refineBigIntBound': {
+      const checks: string[] = [];
+      if (op.min) checks.push(`n >= ${op.min.source}`);
+      if (op.max) checks.push(`n <= ${op.max.source}`);
+      return `${s}.refine((n) => ${checks.join(' && ')})`;
+    }
+    default: {
+      const _: never = op;
+      throw new Error(`unhandled chain op: ${(_ as { op: string }).op}`);
+    }
+  }
+}
+
+function specToZod([root, ...chain]: Spec): z.ZodType {
+  return chain.reduce(applyChainZod, applyRoot(root));
+}
+
+function specToSource([root, ...chain]: Spec): string {
+  return chain.reduce(chainSource, rootSource(root));
+}
+
+function uintBound(bits: number): BoundExpr {
+  return { value: (1n << BigInt(bits)) - 1n, source: `(1n << ${bits}n) - 1n` };
+}
+
+function intMinBound(bits: number): BoundExpr {
+  return { value: -(1n << BigInt(bits - 1)), source: `-(1n << ${bits - 1}n)` };
+}
+
+function intMaxBound(bits: number): BoundExpr {
+  return { value: (1n << BigInt(bits - 1)) - 1n, source: `(1n << ${bits - 1}n) - 1n` };
+}
+
 const UINT_RE = /^uint(\d+)$/;
 const INT_RE = /^int(\d+)$/;
 const BYTES_RE = /^bytes(\d+)$/;
@@ -65,56 +185,53 @@ function dispatchPrimitive<T>(base: string, h: PrimitiveHandlers<T>): T {
   throw new Error(`Unknown Solidity primitive type: ${base}`);
 }
 
-const SCHEMA_HANDLERS: PrimitiveHandlers<z.ZodType> = {
-  uint: (bits) => {
-    const max = (1n << BigInt(bits)) - 1n;
-    return z
-      .string()
-      .regex(/^\d+$/, 'Expected a decimal unsigned integer string')
-      .transform((v) => BigInt(v))
-      .refine((n) => n <= max, { message: `Value exceeds uint${bits} max` });
-  },
-  int: (bits) => {
-    const min = -(1n << BigInt(bits - 1));
-    const max = (1n << BigInt(bits - 1)) - 1n;
-    return z
-      .string()
-      .regex(/^-?\d+$/, 'Expected a decimal signed integer string')
-      .transform((v) => BigInt(v))
-      .refine((n) => n >= min && n <= max, { message: `Value out of int${bits} range` });
-  },
-  bytes: () =>
-    z
-      .string()
-      .regex(/^0x([0-9a-fA-F]{2})*$/, 'Expected hex string with even number of nibbles')
-      .transform((v): Hex => v as Hex),
-  bytesN: (n) =>
-    z
-      .string()
-      .regex(new RegExp(`^0x[0-9a-fA-F]{${2 * n}}$`), `Expected hex string of ${n} bytes`)
-      .transform((v): Hex => v as Hex),
-  address: () =>
-    z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'Expected 20-byte hex address')
-      .transform((v): Hex => v as Hex),
-  bool: () => z.boolean(),
-  string: () => z.string(),
-};
-
-const SOURCE_HANDLERS: PrimitiveHandlers<string> = {
-  uint: (bits) =>
-    `z.string().regex(/^\\d+$/).transform((v) => BigInt(v)).refine((n) => n <= (1n << ${bits}n) - 1n)`,
-  int: (bits) =>
-    `z.string().regex(/^-?\\d+$/).transform((v) => BigInt(v)).refine((n) => n >= -(1n << ${bits - 1}n) && n <= (1n << ${bits - 1}n) - 1n)`,
-  bytes: () =>
-    'z.string().regex(/^0x([0-9a-fA-F]{2})*$/).transform((v) => v as `0x${string}`)',
-  bytesN: (n) =>
-    `z.string().regex(/^0x[0-9a-fA-F]{${2 * n}}$/).transform((v) => v as \`0x\${string}\`)`,
-  address: () =>
-    'z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((v) => v as `0x${string}`)',
-  bool: () => 'z.boolean()',
-  string: () => 'z.string()',
+const SPEC_HANDLERS: PrimitiveHandlers<Spec> = {
+  uint: (bits) => [
+    { op: 'string' },
+    { op: 'regex', pattern: /^\d+$/, message: 'Expected a decimal unsigned integer string' },
+    { op: 'transformBigInt' },
+    {
+      op: 'refineBigIntBound',
+      max: uintBound(bits),
+      message: `Value exceeds uint${bits} max`,
+    },
+  ],
+  int: (bits) => [
+    { op: 'string' },
+    { op: 'regex', pattern: /^-?\d+$/, message: 'Expected a decimal signed integer string' },
+    { op: 'transformBigInt' },
+    {
+      op: 'refineBigIntBound',
+      min: intMinBound(bits),
+      max: intMaxBound(bits),
+      message: `Value out of int${bits} range`,
+    },
+  ],
+  bytes: () => [
+    { op: 'string' },
+    {
+      op: 'regex',
+      pattern: /^0x([0-9a-fA-F]{2})*$/,
+      message: 'Expected hex string with even number of nibbles',
+    },
+    { op: 'transformHex' },
+  ],
+  bytesN: (n) => [
+    { op: 'string' },
+    {
+      op: 'regex',
+      pattern: new RegExp(`^0x[0-9a-fA-F]{${2 * n}}$`),
+      message: `Expected hex string of ${n} bytes`,
+    },
+    { op: 'transformHex' },
+  ],
+  address: () => [
+    { op: 'string' },
+    { op: 'regex', pattern: /^0x[0-9a-fA-F]{40}$/, message: 'Expected 20-byte hex address' },
+    { op: 'transformHex' },
+  ],
+  bool: () => [{ op: 'boolean' }],
+  string: () => [{ op: 'string' }],
 };
 
 const CONST_NAME_HANDLERS: PrimitiveHandlers<string> = {
@@ -127,12 +244,16 @@ const CONST_NAME_HANDLERS: PrimitiveHandlers<string> = {
   string: () => 'STRING',
 };
 
+export function primitiveSpec(base: string): Spec {
+  return dispatchPrimitive<Spec>(base, SPEC_HANDLERS);
+}
+
 export function primitiveSchema(base: string): z.ZodType {
-  return dispatchPrimitive<z.ZodType>(base, SCHEMA_HANDLERS);
+  return specToZod(primitiveSpec(base));
 }
 
 export function primitiveSource(base: string): string {
-  return dispatchPrimitive<string>(base, SOURCE_HANDLERS);
+  return specToSource(primitiveSpec(base));
 }
 
 export function primitiveConstName(base: string): string {
