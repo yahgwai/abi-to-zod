@@ -161,12 +161,83 @@ Dev: `typescript`, `vitest`, `@types/node`, `@arbitrum/nitro-contracts`.
 ## Test coverage
 
 ```
-src/type-parser.test.ts    12 tests
-src/primitives.test.ts     36 tests
-src/build.test.ts          17 tests
-src/function.test.ts        6 tests
-src/abi.test.ts            14 tests
-src/integration.test.ts    96 tests
--------------------------------------
-Total                     181 tests (all passing)
+src/type-parser.test.ts        12 tests
+src/primitives.test.ts         36 tests
+src/primitives-source.test.ts  15 tests
+src/build.test.ts              20 tests
+src/build-source.test.ts       16 tests
+src/function.test.ts            6 tests
+src/abi.test.ts                17 tests
+src/integration.test.ts        96 tests
+src/codegen.test.ts            33 tests
+src/cli.test.ts                 3 tests
+src/golden.test.ts             25 tests
+-----------------------------------------
+Total                         279 tests (all passing)
 ```
+
+## Phase 8 — codegen
+
+Plan: see `docs/codegen-plan.md`. Notes here cover decisions / deviations.
+
+### Shared primitive dispatch
+
+`primitives.ts` now exposes three flavours via one `dispatchPrimitive<T>`
+table: `primitiveSchema` (zod), `primitiveSource` (TS source string), and
+`primitiveConstName` (the hoisted const identifier, e.g. `UINT256`).
+`dispatchPrimitive<z.ZodType>(...)` requires the explicit generic arg — TS
+otherwise infers `T` from the first handler and the others fail to unify.
+
+### Renderer / collector lives in build.ts
+
+`renderSchemaSource`, `renderTupleSource`, and `collectPrimitives` sit next
+to `buildSchema` because they share the same parse + walk shape. Renderers
+take a `PrimitiveResolver` so codegen can route leaves to the hoisted
+consts. The collector is a separate pass over the param tree (the plan
+flagged this as simpler than threading a set through the renderer).
+
+### canonicalType moved to build.ts
+
+Previously local to `abi.ts`; now exported from `build.ts` since both the
+runtime path and the renderer need it. `abi.ts` re-exports for backward
+compatibility of the public API.
+
+### Barrel key ordering
+
+Plan: "name keys (unambiguous only), then signature keys." Each group is
+sorted lexicographically. Signature keys are always present (overloaded
+functions appear only in this group). Name keys reference the hoisted
+`<name>Schema`; overload-only signature keys inline the tuple expression.
+
+### Quote style for barrel signature keys
+
+`JSON.stringify(key)` would emit double-quoted keys; switched to literal
+single quotes to match the rest of the file (`import { z } from 'zod';`)
+and the plan's example. Signatures are guaranteed not to contain `'`.
+
+### Generator version
+
+`generate(abi, sourceName?)` reads `version` from the closest `package.json`
+relative to the compiled module location (works for both `src/` during
+tests and `dist/` after build).
+
+### Source eval in tests
+
+Generated source contains the TS-only `as `0x${string}`` cast on the hex
+transforms. The equivalence tests strip that cast with a regex and pass the
+remainder through `new Function('z', ...)`. Easier than wiring up `tsx`
+just for tests; only the runtime behaviour needs verifying, not the typing.
+
+### CLI types
+
+`tsconfig.json` had no explicit `types` field; vitest had been pulling in
+node typings transitively from test files. Once `**/*.test.ts` is excluded
+for the build, the side-effect goes away and `tsc -p tsconfig.build.json`
+loses `node:*` and `process`. Added `"types": ["node"]` to fix the build.
+
+### Golden fixtures
+
+24 generator outputs committed to `test/fixtures-generated/` mirroring the
+fixture tree. `scripts/regenerate-golden.mjs` rewrites them; `npm run
+regenerate:golden` builds first then runs the script. `golden.test.ts`
+regenerates in memory and asserts byte-equal to catch accidental drift.
