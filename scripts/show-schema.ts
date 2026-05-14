@@ -1,45 +1,46 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { abiToZod, type AbiParameter } from '../src/index.js';
 import { parseType } from '../src/type-parser.js';
+import type { AbiParameter } from '../src/index.js';
 
-const [fixturePath, query] = process.argv.slice(2);
-if (!fixturePath || !query) {
-  console.error('Usage: npx tsx scripts/show-schema.ts <fixture-path> <function-name-or-signature>');
+const [fixturePath, filter] = process.argv.slice(2);
+if (!fixturePath) {
+  console.error('Usage: npx tsx scripts/show-schema.ts <fixture-path> [function-name-or-signature]');
   process.exit(1);
 }
 
 type Entry = { type?: string; name?: string; inputs?: AbiParameter[] };
 const abi = JSON.parse(readFileSync(resolve(fixturePath), 'utf8')) as Entry[];
-const schema = abiToZod(abi, query);
 
-const fn = findMatch(abi, query);
-console.log(`# ${query}\n`);
-console.log('## ABI inputs');
-console.log(JSON.stringify(fn?.inputs ?? [], null, 2));
+const functions = abi.filter(
+  (e): e is Required<Pick<Entry, 'type' | 'name' | 'inputs'>> =>
+    e.type === 'function' && typeof e.name === 'string' && Array.isArray(e.inputs),
+);
 
-const args = (fn?.inputs ?? []).map(placeholderFor);
-console.log('\n## Sample input (placeholder)');
-console.log(args);
+const target = functions.filter((f) => {
+  if (!filter) return true;
+  if (filter.includes('(')) return canonicalSignature(f) === normalizeSig(filter);
+  return f.name === filter;
+});
 
-console.log('\n## Parsed output');
-try {
-  console.log(schema.parse(args));
-} catch (err) {
-  console.log('parse failed:', err instanceof Error ? err.message : err);
+if (target.length === 0) {
+  console.error(`No matching function in ${fixturePath} for ${filter ?? '<any>'}.`);
+  process.exit(1);
 }
 
-function findMatch(entries: Entry[], q: string): Entry | undefined {
-  if (q.includes('(')) {
-    const target = q.replace(/\b(u?int)(?![a-zA-Z0-9_])/g, '$1256');
-    return entries.find((e) => e.type === 'function' && canonical(e) === target);
-  }
-  return entries.find((e) => e.type === 'function' && e.name === q);
+for (const f of target) {
+  console.log(`=== ${canonicalSignature(f)} ===`);
+  console.log(renderParams(f.inputs, ''));
+  console.log('');
 }
 
-function canonical(e: Entry): string {
-  return `${e.name}(${(e.inputs ?? []).map(typeStr).join(',')})`;
+function canonicalSignature(f: { name: string; inputs: readonly AbiParameter[] }): string {
+  return `${f.name}(${f.inputs.map(typeStr).join(',')})`;
+}
+
+function normalizeSig(s: string): string {
+  return s.replace(/\b(u?int)(?![a-zA-Z0-9_])/g, '$1256');
 }
 
 function typeStr(p: AbiParameter): string {
@@ -58,25 +59,47 @@ function typeStr(p: AbiParameter): string {
   return s;
 }
 
-function placeholderFor(p: AbiParameter): unknown {
+function renderParams(ps: readonly AbiParameter[], indent: string): string {
+  if (ps.length === 0) return 'z.tuple([])';
+  const inner = indent + '  ';
+  const lines = ps.map((p) => {
+    const tag = p.name ? `/* ${p.name}: ${p.type} */ ` : `/* ${p.type} */ `;
+    return inner + tag + renderParam(p, inner);
+  });
+  return `z.tuple([\n${lines.join(',\n')}\n${indent}])`;
+}
+
+function renderParam(p: AbiParameter, indent: string): string {
   const { base, suffixes } = parseType(p.type);
-  let v: unknown;
+  let s: string;
   if (base === 'tuple') {
-    v = (p.components ?? []).map(placeholderFor);
-  } else if (base === 'address') {
-    v = '0x' + '0'.repeat(40);
-  } else if (base === 'bool') {
-    v = false;
-  } else if (base === 'string') {
-    v = '';
-  } else if (base === 'bytes') {
-    v = '0x';
-  } else if (/^bytes(\d+)$/.test(base)) {
-    const n = Number(/^bytes(\d+)$/.exec(base)![1]);
-    v = '0x' + '0'.repeat(2 * n);
+    s = renderParams(p.components ?? [], indent);
   } else {
-    v = '0';
+    s = renderPrimitive(base);
   }
-  for (const suf of suffixes) v = Array(suf ?? 1).fill(v);
-  return v;
+  for (const suf of suffixes) {
+    s = suf === null ? `z.array(${s})` : `z.array(${s}).length(${suf})`;
+  }
+  return s;
+}
+
+function renderPrimitive(base: string): string {
+  if (base === 'uint' || /^uint\d+$/.test(base)) {
+    const bits = base === 'uint' ? 256 : Number(base.slice(4));
+    return `z.string().regex(/^\\d+$/).transform(BigInt).refine(n => n <= 2n ** ${bits}n - 1n)`;
+  }
+  if (base === 'int' || /^int\d+$/.test(base)) {
+    const bits = base === 'int' ? 256 : Number(base.slice(3));
+    return `z.string().regex(/^-?\\d+$/).transform(BigInt).refine(n => n >= -(2n ** ${bits - 1}n) && n <= 2n ** ${bits - 1}n - 1n)`;
+  }
+  if (base === 'address') return 'z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform(v => v as `0x${string}`)';
+  if (base === 'bool') return 'z.boolean()';
+  if (base === 'string') return 'z.string()';
+  if (base === 'bytes') return 'z.string().regex(/^0x([0-9a-fA-F]{2})*$/).transform(v => v as `0x${string}`)';
+  const m = /^bytes(\d+)$/.exec(base);
+  if (m) {
+    const n = Number(m[1]);
+    return `z.string().regex(/^0x[0-9a-fA-F]{${2 * n}}$/).transform(v => v as \`0x\${string}\`)`;
+  }
+  return `/* unsupported: ${base} */`;
 }
