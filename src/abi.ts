@@ -19,7 +19,7 @@ export type AbiEntry = {
 };
 export type Abi = readonly AbiEntry[];
 
-function filterFunctions(abi: Abi): AbiFunctionEntry[] {
+export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   const out: AbiFunctionEntry[] = [];
   for (let i = 0; i < abi.length; i++) {
     const e = abi[i]!;
