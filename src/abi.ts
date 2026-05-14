@@ -1,26 +1,7 @@
-import { parseType } from './type-parser.js';
-import { type AbiParameter } from './build.js';
+import { type AbiParameter, canonicalType } from './build.js';
 import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
 
-function normalizeBase(base: string): string {
-  if (base === 'uint') return 'uint256';
-  if (base === 'int') return 'int256';
-  return base;
-}
-
-function canonicalType(param: AbiParameter): string {
-  const { base, suffixes } = parseType(param.type);
-  let s: string;
-  if (base === 'tuple') {
-    s = `(${(param.components ?? []).map(canonicalType).join(',')})`;
-  } else {
-    s = normalizeBase(base);
-  }
-  for (const suffix of suffixes) {
-    s += suffix === null ? '[]' : `[${suffix}]`;
-  }
-  return s;
-}
+export { canonicalType };
 
 export function canonicalSignature(entry: AbiFunctionEntry): string {
   return `${entry.name}(${entry.inputs.map(canonicalType).join(',')})`;
