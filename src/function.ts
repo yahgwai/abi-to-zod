@@ -15,6 +15,6 @@ export function abiFunctionToZod(entry: AbiFunctionEntry) {
       `abiFunctionToZod expects a function entry, got type=${JSON.stringify((entry as { type?: string }).type ?? '<missing>')}`,
     );
   }
-  const items = entry.inputs.map(buildSchema);
+  const items = entry.inputs.map((input, i) => buildSchema(input, [`inputs[${i}]`]));
   return z.tuple(items as [z.ZodType, ...z.ZodType[]]);
 }

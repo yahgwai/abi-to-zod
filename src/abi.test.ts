@@ -183,4 +183,22 @@ describe('abiToZod', () => {
     const s = abiToZod(overloadedAbi, 'bar()');
     expect(s.parse([])).toEqual([]);
   });
+
+  it('throws on function entries with missing inputs', () => {
+    const abi = [{ type: 'function', name: 'foo' }] as unknown as Abi;
+    expect(() => abiToZod(abi, 'foo')).toThrow(/inputs/);
+  });
+
+  it('throws on function entries with non-string name', () => {
+    const abi = [{ type: 'function', inputs: [] }] as unknown as Abi;
+    expect(() => abiToZod(abi, 'anything')).toThrow(/name/);
+  });
+
+  it('failure surfaces immediately, not silently dropped', () => {
+    const abi = [
+      { type: 'function', name: 'good', inputs: [] },
+      { type: 'function', name: 'bad' },
+    ] as unknown as Abi;
+    expect(() => abiToZod(abi, 'good')).toThrow(/bad.*inputs/);
+  });
 });

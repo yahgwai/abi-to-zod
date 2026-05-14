@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSchema } from './build.js';
+import { buildSchema, BuildSchemaError } from './build.js';
 
 describe('buildSchema: primitives', () => {
   it('builds a schema for a uint256', () => {
@@ -152,5 +152,62 @@ describe('buildSchema: rejections', () => {
 
   it('propagates type-parser rejections', () => {
     expect(() => buildSchema({ type: 'uint256[0]', name: 'f' })).toThrow(/size 0/);
+  });
+
+  it('wraps errors in BuildSchemaError with the offending type in the message', () => {
+    let caught: unknown;
+    try {
+      buildSchema({ type: 'mystery', name: 'foo' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(BuildSchemaError);
+    expect((caught as Error).message).toContain('"mystery"');
+    expect((caught as Error).message).toContain('"foo"');
+    expect((caught as { cause?: unknown }).cause).toBeInstanceOf(Error);
+  });
+
+  it('reports the path on deeply-nested failures', () => {
+    let caught: unknown;
+    try {
+      buildSchema({
+        type: 'tuple',
+        name: 'outer',
+        components: [
+          { type: 'address', name: 'a' },
+          {
+            type: 'tuple',
+            name: 'inner',
+            components: [
+              { type: 'address', name: 'inner_a' },
+              { type: 'uint256[0]', name: 'inner_b' },
+            ],
+          },
+        ],
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(BuildSchemaError);
+    expect((caught as Error).message).toContain('components[1].components[1]');
+    expect((caught as Error).message).toContain('size 0');
+    expect((caught as { cause?: unknown }).cause).toBeInstanceOf(Error);
+  });
+
+  it('preserves the deepest path through re-throws', () => {
+    let caught: unknown;
+    try {
+      buildSchema(
+        {
+          type: 'tuple',
+          components: [{ type: 'mystery' }],
+        },
+        ['inputs[5]'],
+      );
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(BuildSchemaError);
+    expect((caught as Error).message).toContain('inputs[5].components[0]');
   });
 });

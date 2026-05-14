@@ -40,10 +40,18 @@ export type Abi = readonly AbiEntry[];
 
 function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   const out: AbiFunctionEntry[] = [];
-  for (const e of abi) {
-    if (e.type === 'function' && typeof e.name === 'string' && Array.isArray(e.inputs)) {
-      out.push(e as AbiFunctionEntry);
+  for (let i = 0; i < abi.length; i++) {
+    const e = abi[i]!;
+    if (e.type !== 'function') continue;
+    if (typeof e.name !== 'string') {
+      throw new Error(`abi[${i}]: function entry has missing or non-string 'name'`);
     }
+    if (!Array.isArray(e.inputs)) {
+      throw new Error(
+        `abi[${i}] (${e.name}): function entry has missing or non-array 'inputs'`,
+      );
+    }
+    out.push(e as AbiFunctionEntry);
   }
   return out;
 }
