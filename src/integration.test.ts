@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { abiToZod, canonicalSignature, type Abi } from './abi.js';
-import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
+import { abiToZod, canonicalSignature, filterFunctions, type Abi } from './abi.js';
+import { abiFunctionToZod } from './function.js';
 import { parseType } from './type-parser.js';
 import { type AbiParameter } from './build.js';
 
@@ -26,7 +26,17 @@ function placeholderFor(param: AbiParameter): unknown {
   const { base, suffixes } = parseType(param.type);
   let value: unknown;
   if (base === 'tuple') {
-    value = (param.components ?? []).map(placeholderFor);
+    const comps = param.components ?? [];
+    const named = comps.length > 0 && comps.every(
+      (c) => typeof c.name === 'string' && c.name !== '',
+    );
+    if (named) {
+      const obj: Record<string, unknown> = {};
+      for (const c of comps) obj[c.name as string] = placeholderFor(c);
+      value = obj;
+    } else {
+      value = comps.map(placeholderFor);
+    }
   } else {
     value = placeholderPrimitive(base);
   }
@@ -39,10 +49,7 @@ function placeholderFor(param: AbiParameter): unknown {
 
 function runFixture(relPath: string) {
   const abi = loadAbi(relPath);
-  const functions = abi.filter(
-    (e): e is AbiFunctionEntry =>
-      e.type === 'function' && typeof e.name === 'string' && Array.isArray(e.inputs),
-  );
+  const functions = filterFunctions(abi);
 
   describe(relPath, () => {
     it(`builds a schema for every function (${functions.length} fns)`, () => {
@@ -67,13 +74,11 @@ function runFixture(relPath: string) {
       }
     });
 
-    it('resolves every function via abiToZod(sig)', () => {
+    it('resolves every function via barrel signature key', () => {
+      const barrel = abiToZod(abi);
       for (const f of functions) {
         const sig = canonicalSignature(f);
-        expect(
-          () => abiToZod(abi, sig),
-          `abiToZod failed for ${sig}`,
-        ).not.toThrow();
+        expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
       }
     });
 

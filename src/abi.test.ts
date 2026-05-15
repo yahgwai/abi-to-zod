@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { abiToZod, canonicalSignature, type Abi } from './abi.js';
+import type { Abi } from 'abitype';
+import { abiToZod, canonicalSignature } from './abi.js';
 
-const simpleAbi: Abi = [
+const simpleAbi = [
   {
     type: 'function',
     name: 'transfer',
@@ -10,12 +11,14 @@ const simpleAbi: Abi = [
       { name: 'value', type: 'uint256' },
     ],
     outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'balanceOf',
     inputs: [{ name: 'owner', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
   },
   {
     type: 'event',
@@ -26,25 +29,31 @@ const simpleAbi: Abi = [
       { name: 'value', type: 'uint256' },
     ],
   },
-];
+] as const satisfies Abi;
 
-const overloadedAbi: Abi = [
+const overloadedAbi = [
   {
     type: 'function',
     name: 'foo',
     inputs: [{ name: 'a', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'foo',
     inputs: [{ name: 'a', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'bar',
     inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
-];
+] as const satisfies Abi;
 
 describe('canonicalSignature', () => {
   it('formats primitive args', () => {
@@ -132,66 +141,63 @@ describe('canonicalSignature', () => {
   });
 });
 
-describe('abiToZod', () => {
-  it('resolves unambiguous name', () => {
-    const s = abiToZod(simpleAbi, 'transfer');
-    expect(s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
+describe('abiToZod barrel', () => {
+  it('exposes name keys for unambiguous functions', () => {
+    const barrel = abiToZod(simpleAbi);
+    const transfer = barrel.transfer;
+    expect(transfer).toBeDefined();
+    expect(transfer!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
       100n,
     ]);
   });
 
-  it('resolves explicit signature', () => {
-    const s = abiToZod(simpleAbi, 'balanceOf(address)');
-    expect(s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
+  it('exposes signature keys for every function', () => {
+    const barrel = abiToZod(simpleAbi);
+    const balanceOf = barrel['balanceOf(address)'];
+    expect(balanceOf).toBeDefined();
+    expect(balanceOf!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     ]);
   });
 
-  it('throws on unknown name', () => {
-    expect(() => abiToZod(simpleAbi, 'unknown')).toThrow(/No function named/);
+  it('returns undefined for unknown name or signature', () => {
+    const barrel = abiToZod(simpleAbi);
+    expect(barrel['unknown']).toBeUndefined();
+    expect(barrel['transfer(uint256)']).toBeUndefined();
   });
 
-  it('throws on unknown signature', () => {
-    expect(() => abiToZod(simpleAbi, 'transfer(uint256)')).toThrow(/No function found/);
-  });
-
-  it('throws on ambiguous name', () => {
-    expect(() => abiToZod(overloadedAbi, 'foo')).toThrow(/Ambiguous/);
-  });
-
-  it('resolves overloads via full signature', () => {
-    const sUint = abiToZod(overloadedAbi, 'foo(uint256)');
-    const sAddr = abiToZod(overloadedAbi, 'foo(address)');
-    expect(sUint.parse(['42'])).toEqual([42n]);
-    expect(sAddr.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
+  it('omits the name key when overloaded, but keeps both signature keys', () => {
+    const barrel = abiToZod(overloadedAbi);
+    expect(barrel['foo']).toBeUndefined();
+    expect(barrel['foo(uint256)']).toBeDefined();
+    expect(barrel['foo(address)']).toBeDefined();
+    expect(barrel['foo(uint256)']!.parse(['42'])).toEqual([42n]);
+    expect(barrel['foo(address)']!.parse([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-    ]);
-  });
-
-  it('normalizes uint alias in query signature', () => {
-    const abi: Abi = [{ type: 'function', name: 'foo', inputs: [{ name: 'a', type: 'uint256' }] }];
-    const s = abiToZod(abi, 'foo(uint)');
-    expect(s.parse(['1'])).toEqual([1n]);
+    ])).toEqual(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    expect(() => abiToZod(simpleAbi, 'Transfer')).toThrow(/No function named/);
+    const barrel = abiToZod(simpleAbi);
+    expect(barrel['Transfer']).toBeUndefined();
   });
 
   it('handles zero-input functions via signature', () => {
-    const s = abiToZod(overloadedAbi, 'bar()');
-    expect(s.parse([])).toEqual([]);
+    const barrel = abiToZod(overloadedAbi);
+    expect(barrel['bar()']).toBeDefined();
+    expect(barrel.bar).toBeDefined();
+    expect(barrel.bar!.parse([])).toEqual([]);
   });
 
   it('throws on function entries with missing inputs', () => {
     const abi = [{ type: 'function', name: 'foo' }] as unknown as Abi;
-    expect(() => abiToZod(abi, 'foo')).toThrow(/inputs/);
+    expect(() => abiToZod(abi)).toThrow(/inputs/);
   });
 
   it('throws on function entries with non-string name', () => {
     const abi = [{ type: 'function', inputs: [] }] as unknown as Abi;
-    expect(() => abiToZod(abi, 'anything')).toThrow(/name/);
+    expect(() => abiToZod(abi)).toThrow(/name/);
   });
 
   it('failure surfaces immediately, not silently dropped', () => {
@@ -199,6 +205,6 @@ describe('abiToZod', () => {
       { type: 'function', name: 'good', inputs: [] },
       { type: 'function', name: 'bad' },
     ] as unknown as Abi;
-    expect(() => abiToZod(abi, 'good')).toThrow(/bad.*inputs/);
+    expect(() => abiToZod(abi)).toThrow(/bad.*inputs/);
   });
 });
