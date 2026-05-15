@@ -70,7 +70,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
   out.push('');
 
   if (usedPrims.size > 0) {
-    out.push('// === Primitive schemas (edit once to customise all uses) ===');
+    out.push('// === Primitive schemas ===');
     out.push('');
     const sortedPrims = [...usedPrims].sort();
     for (const cname of sortedPrims) {
@@ -91,7 +91,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
     }
   }
 
-  out.push('// === Lookup barrel (mirrors abiToZod) ===');
+  out.push('// === ABI schema  ===');
   out.push('');
   out.push('export const schemas = {');
 
