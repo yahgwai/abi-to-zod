@@ -3,11 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { type Abi, canonicalSignature, filterFunctions } from './abi.js';
-import {
-  type AbiParameter,
-  collectPrimitives,
-  renderTupleSource,
-} from './build.js';
+import { type AbiParameter } from './build.js';
+import { collectPrimitives, renderTupleSource } from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
 
 let cachedVersion: string | undefined;
