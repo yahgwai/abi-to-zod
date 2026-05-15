@@ -1,28 +1,24 @@
+import type { z } from 'zod';
+import type { Abi, AbiFunction, AbiParametersToPrimitiveTypes } from 'abitype';
 import { type AbiParameter, canonicalType } from './build.js';
 import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
 
+export type { Abi };
 export { canonicalType };
 
 export function canonicalSignature(entry: AbiFunctionEntry): string {
   return `${entry.name}(${entry.inputs.map(canonicalType).join(',')})`;
 }
 
-function normalizeQuerySignature(sig: string): string {
-  return sig.replace(/\b(u?int)(?![a-zA-Z0-9_])/g, '$1256');
-}
-
-export type AbiEntry = {
-  readonly type?: string;
-  readonly name?: string;
-  readonly inputs?: readonly AbiParameter[];
-  readonly outputs?: readonly AbiParameter[];
-};
-export type Abi = readonly AbiEntry[];
-
 export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   const out: AbiFunctionEntry[] = [];
   for (let i = 0; i < abi.length; i++) {
-    const e = abi[i]!;
+    const e = abi[i] as {
+      type?: string;
+      name?: unknown;
+      inputs?: unknown;
+      outputs?: readonly AbiParameter[];
+    };
     if (e.type !== 'function') continue;
     if (typeof e.name !== 'string') {
       throw new Error(`abi[${i}]: function entry has missing or non-string 'name'`);
@@ -32,32 +28,44 @@ export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
         `abi[${i}] (${e.name}): function entry has missing or non-array 'inputs'`,
       );
     }
-    out.push(e as AbiFunctionEntry);
+    out.push(e as unknown as AbiFunctionEntry);
   }
   return out;
 }
 
-export function abiToZod(abi: Abi, nameOrSignature: string) {
-  const functions = filterFunctions(abi);
+// Standard "are these two types identical" trick. Used to keep only
+// unambiguous name keys: if Extract<all-fns, {name:N}> matches the single
+// entry F, F is the only function named N.
+type Equal<X, Y> =
+  (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-  if (nameOrSignature.includes('(')) {
-    const target = normalizeQuerySignature(nameOrSignature);
-    const match = functions.find((f) => canonicalSignature(f) === target);
-    if (!match) {
-      throw new Error(`No function found with signature: ${nameOrSignature}`);
-    }
-    return abiFunctionToZod(match);
-  }
+type FunctionEntries<A extends Abi> = Extract<A[number], { type: 'function' }>;
 
-  const byName = functions.filter((f) => f.name === nameOrSignature);
-  if (byName.length === 0) {
-    throw new Error(`No function named: ${nameOrSignature}`);
+type SchemaFor<F extends AbiFunction> = z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>;
+
+type NameKeys<A extends Abi> = {
+  [F in FunctionEntries<A> as Equal<
+    Extract<FunctionEntries<A>, { name: F['name'] }>,
+    F
+  > extends true
+    ? F['name']
+    : never]: SchemaFor<F>;
+};
+
+export type Barrel<A extends Abi> = NameKeys<A> & {
+  readonly [signature: string]: z.ZodType<unknown> | undefined;
+};
+
+export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
+  const fns = filterFunctions(abi);
+  const counts = new Map<string, number>();
+  for (const f of fns) counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
+
+  const out: Record<string, z.ZodType<unknown>> = {};
+  for (const f of fns) {
+    const schema = abiFunctionToZod(f) as z.ZodType<unknown>;
+    out[canonicalSignature(f)] = schema;
+    if (counts.get(f.name) === 1) out[f.name] = schema;
   }
-  if (byName.length > 1) {
-    const sigs = byName.map(canonicalSignature).join(', ');
-    throw new Error(
-      `Ambiguous function name "${nameOrSignature}". Found: ${sigs}. Disambiguate with the full signature.`,
-    );
-  }
-  return abiFunctionToZod(byName[0]!);
+  return out as Barrel<A>;
 }

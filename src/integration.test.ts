@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { abiToZod, canonicalSignature, type Abi } from './abi.js';
-import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
+import { abiToZod, canonicalSignature, filterFunctions, type Abi } from './abi.js';
+import { abiFunctionToZod } from './function.js';
 import { parseType } from './type-parser.js';
 import { type AbiParameter } from './build.js';
 
@@ -39,10 +39,7 @@ function placeholderFor(param: AbiParameter): unknown {
 
 function runFixture(relPath: string) {
   const abi = loadAbi(relPath);
-  const functions = abi.filter(
-    (e): e is AbiFunctionEntry =>
-      e.type === 'function' && typeof e.name === 'string' && Array.isArray(e.inputs),
-  );
+  const functions = filterFunctions(abi);
 
   describe(relPath, () => {
     it(`builds a schema for every function (${functions.length} fns)`, () => {
@@ -67,13 +64,11 @@ function runFixture(relPath: string) {
       }
     });
 
-    it('resolves every function via abiToZod(sig)', () => {
+    it('resolves every function via barrel signature key', () => {
+      const barrel = abiToZod(abi);
       for (const f of functions) {
         const sig = canonicalSignature(f);
-        expect(
-          () => abiToZod(abi, sig),
-          `abiToZod failed for ${sig}`,
-        ).not.toThrow();
+        expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
       }
     });
 
