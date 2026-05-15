@@ -309,3 +309,71 @@ schema as input. The interpreters split into `applyRoot` + `applyChainZod`
 so adding a new RootOp or ChainOp variant must update both paths or
 fail to compile. Drops the undefined-schema guards and the empty-spec
 runtime check.
+
+## Phase 10 — abiToZod barrel + tight runtime types
+
+### abitype as the type-source of truth
+
+`buildSchema` and `abiFunctionToZod` now return narrow
+`z.ZodType<AbiParameterToPrimitiveType<P>>` /
+`z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>`. Both keep their
+existing runtime impl on the loose local `AbiParameter` shape and cast at
+the public boundary — internal recursion doesn't need to satisfy the
+abitype discriminated union. The win: `z.infer<typeof schema>` is the
+exact type viem's `encodeFunctionData` expects for the same `as const`
+ABI, with no per-call cast required.
+
+### Primitive mapping aligned with abitype
+
+abitype's default register maps `int<M>` / `uint<M>` to `number` when
+`M <= 48` and to `bigint` otherwise. Our old behaviour transformed every
+width to `bigint`. Added a `transformBigIntToNumber` chain op and append
+it to the spec for widths ≤ 48 — the bound check stays on `bigint` to
+avoid precision concerns at the small-width boundary. Larger widths,
+address, bytes, bool and string already matched. Runtime behaviour
+change: e.g. `primitiveSchema('uint8').parse('255')` now returns `255`,
+not `255n`. The threshold matches `ResolvedRegister['intType']` vs
+`ResolvedRegister['bigIntType']`.
+
+### abiToZod is a barrel, not a lookup
+
+`abiToZod(abi)` returns `Barrel<A>` with:
+- Signature keys for every function (canonical sig form), always
+  present.
+- Name keys for unambiguous functions only — overloaded names get no
+  name key, so `barrel.foo` is `undefined` at runtime when `foo` is
+  overloaded, while both `barrel['foo(uint256)']` and
+  `barrel['foo(address)']` exist.
+
+The type-level filter for unambiguous names uses the standard
+`Equal<X, Y>` identity trick over `Extract<FunctionEntries, { name: N }>`.
+Construction errors (malformed function entries) still surface at
+`abiToZod(abi)` time. Dropped the old `abiToZod(abi, nameOrSignature)`
+form and the `uint`→`uint256` alias normalisation on query strings —
+barrel keys are canonical, accessors return `undefined` for unknown.
+
+### viem-compat scaffolding (positional only)
+
+`src/viem-compat.test.ts` carries two coverage flavours:
+1. TS-level — inline ERC20 + ArbInfo `as const satisfies Abi`, explicit
+   named `encodeFunctionData({ ..., args: schemas.transfer.parse(...) })`
+   per function. The call compiling *is* the assertion.
+2. Runtime — loops every JSON fixture, builds placeholder args, parses
+   via the barrel, and asserts viem accepts the result. Uses the bare
+   `f.name` so viem disambiguates overloads from `args` shape.
+
+Tuple-input functions are filtered out: the hybrid `z.object` renderer
+for named struct components lives in phase 2 of this refactor and is
+out of scope here.
+
+### Golden output deleted
+
+The 24 generator outputs in `test/fixtures-generated/` were
+hand-eyeball goldens that turned into review noise every time the
+generator changed (the abitype primitive-mapping shift just churned 9
+of them). They never carried real signal — `codegen.test.ts` already
+asserts runtime equivalence between generated source and the live
+`abiToZod` barrel for every fixture, so the golden-byte check was
+redundant. Removed `src/golden.test.ts`; kept
+`scripts/regenerate-golden.mjs` and the `regenerate:golden` npm script
+for manual inspection while iterating on output format.
