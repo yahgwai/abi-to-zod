@@ -3,11 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { type Abi, canonicalSignature, filterFunctions } from './abi.js';
-import {
-  type AbiParameter,
-  collectPrimitives,
-  renderTupleSource,
-} from './build.js';
+import { type AbiParameter } from './build.js';
+import { collectPrimitives, renderTupleSource } from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
 
 let cachedVersion: string | undefined;
@@ -70,7 +67,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
   out.push('');
 
   if (usedPrims.size > 0) {
-    out.push('// === Primitive schemas (edit once to customise all uses) ===');
+    out.push('// === Primitive schemas ===');
     out.push('');
     const sortedPrims = [...usedPrims].sort();
     for (const cname of sortedPrims) {
@@ -91,7 +88,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
     }
   }
 
-  out.push('// === Lookup barrel (mirrors abiToZod) ===');
+  out.push('// === ABI schema  ===');
   out.push('');
   out.push('export const schemas = {');
 

@@ -6,7 +6,7 @@ exports[`generate: snapshot small fixtures > snapshot: arbitrum/precompiles/ArbI
 
 import { z } from 'zod';
 
-// === Primitive schemas (edit once to customise all uses) ===
+// === Primitive schemas ===
 
 const ADDRESS = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((v) => v as \`0x\${string}\`);
 
@@ -22,7 +22,7 @@ export const getCodeSchema = z.tuple([
   /* account: address */ ADDRESS,
 ]);
 
-// === Lookup barrel (mirrors abiToZod) ===
+// === ABI schema  ===
 
 export const schemas = {
   getBalance: getBalanceSchema,
@@ -39,7 +39,7 @@ exports[`generate: snapshot small fixtures > snapshot: erc/ERC20.ts 1`] = `
 
 import { z } from 'zod';
 
-// === Primitive schemas (edit once to customise all uses) ===
+// === Primitive schemas ===
 
 const ADDRESS = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((v) => v as \`0x\${string}\`);
 const UINT256 = z.string().regex(/^\\d+$/).transform((v) => BigInt(v)).refine((n) => n <= (1n << 256n) - 1n);
@@ -79,7 +79,7 @@ export const transferFromSchema = z.tuple([
   /* value: uint256 */ UINT256,
 ]);
 
-// === Lookup barrel (mirrors abiToZod) ===
+// === ABI schema  ===
 
 export const schemas = {
   allowance: allowanceSchema,
