@@ -335,6 +335,28 @@ change: e.g. `primitiveSchema('uint8').parse('255')` now returns `255`,
 not `255n`. The threshold matches `ResolvedRegister['intType']` vs
 `ResolvedRegister['bigIntType']`.
 
+### Named-tuple components emit `z.strictObject`
+
+abitype's `AbiComponentsToPrimitiveType` maps a struct to an object
+keyed by component names when every component has a non-empty `name`,
+and to a positional tuple otherwise. We mirror that exactly in
+`doBuild` and `renderSchemaSource`: all-named struct components →
+`z.strictObject({ [name]: schema, ... })`, anything else (any
+anonymous component, or zero components) → `z.tuple([...])`.
+`strictObject` (not `object`) so excess keys are rejected — matches
+abitype's no-extra-keys structural typing.
+
+Function-level inputs always stay positional. `abiFunctionToZod` wraps
+the per-input schemas in `z.tuple(...)` regardless of input naming, and
+`renderTupleSource` keeps the same shape for codegen output. Only
+struct components opt into the object form.
+
+Without this branch, the typed return on `buildSchema` was a lie for
+every named-tuple component: TS inferred an object, runtime delivered a
+positional array, and the viem-compat runtime loop was hiding the drift
+behind a `!hasTupleInput` filter. The filter is gone; every function in
+every fixture now goes through `encodeFunctionData`.
+
 ### abiToZod is a barrel, not a lookup
 
 `abiToZod(abi)` returns `Barrel<A>` with:
@@ -352,19 +374,19 @@ Construction errors (malformed function entries) still surface at
 form and the `uint`→`uint256` alias normalisation on query strings —
 barrel keys are canonical, accessors return `undefined` for unknown.
 
-### viem-compat scaffolding (positional only)
+### viem-compat scaffolding
 
 `src/viem-compat.test.ts` carries two coverage flavours:
 1. TS-level — inline ERC20 + ArbInfo `as const satisfies Abi`, explicit
    named `encodeFunctionData({ ..., args: schemas.transfer.parse(...) })`
-   per function. The call compiling *is* the assertion.
-2. Runtime — loops every JSON fixture, builds placeholder args, parses
-   via the barrel, and asserts viem accepts the result. Uses the bare
+   per function, plus a minimal named-tuple fragment whose arg
+   resolves to an object rather than an array. The call compiling
+   *is* the assertion.
+2. Runtime — loops every JSON fixture (no struct-input filter),
+   builds placeholders that match abitype's shape rule (object for
+   all-named struct components, positional otherwise), parses via the
+   barrel, and asserts viem accepts the result. Uses the bare
    `f.name` so viem disambiguates overloads from `args` shape.
-
-Tuple-input functions are filtered out: the hybrid `z.object` renderer
-for named struct components lives in phase 2 of this refactor and is
-out of scope here.
 
 ### Golden output deleted
 
