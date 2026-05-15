@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { generate } from './codegen.js';
 import { abiToZod, filterFunctions, canonicalSignature, type Abi } from './abi.js';
+import { placeholderFor } from './test-helpers.js';
 
 import { FIXTURES, erc20Abi, arbInfoAbi } from '../test/fixtures/index.js';
 
@@ -23,42 +24,6 @@ function evalGenerated(source: string): {
   return { schemas };
 }
 
-type TupleComponent = { name?: string; type: string; components?: readonly TupleComponent[] };
-
-function placeholderForType(type: string, components?: readonly TupleComponent[]): unknown {
-  if (type === 'address') return '0x0000000000000000000000000000000000000000';
-  if (type === 'bool') return false;
-  if (type === 'string') return 'x';
-  if (type === 'bytes') return '0x';
-  const bm = /^bytes(\d+)$/.exec(type);
-  if (bm) return '0x' + 'a'.repeat(2 * Number(bm[1]));
-  if (type === 'uint' || /^uint\d+$/.test(type)) return '1';
-  if (type === 'int' || /^int\d+$/.test(type)) return '-1';
-  const arr = /^(.+)\[(\d*)\]$/.exec(type);
-  if (arr) {
-    const inner = arr[1]!;
-    const n = arr[2] ? Number(arr[2]) : 0;
-    return Array.from({ length: n }, () => placeholderForType(inner, components));
-  }
-  if (type === 'tuple') {
-    const comps = components ?? [];
-    const named = comps.length > 0 && comps.every(
-      (c) => typeof c.name === 'string' && c.name !== '',
-    );
-    if (named) {
-      const obj: Record<string, unknown> = {};
-      for (const c of comps) obj[c.name as string] = placeholderForType(c.type, c.components);
-      return obj;
-    }
-    return comps.map((c) => placeholderForType(c.type, c.components));
-  }
-  throw new Error(`no placeholder for ${type}`);
-}
-
-function placeholderForInputs(inputs: readonly TupleComponent[]): unknown[] {
-  return inputs.map((p) => placeholderForType(p.type, p.components));
-}
-
 describe('generate: equivalence with abiToZod', () => {
   for (const [rel, abi] of Object.entries(FIXTURES)) {
     it(`fixture ${rel}: generated schemas match runtime parse output`, () => {
@@ -73,7 +38,7 @@ describe('generate: equivalence with abiToZod', () => {
 
         let input: unknown[];
         try {
-          input = placeholderForInputs(f.inputs);
+          input = f.inputs.map(placeholderFor);
         } catch {
           // skip functions whose inputs use unsupported types (none expected)
           continue;

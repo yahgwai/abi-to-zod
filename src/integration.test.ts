@@ -1,46 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { abiToZod, canonicalSignature, filterFunctions, type Abi } from './abi.js';
 import { abiFunctionToZod } from './function.js';
-import { parseType } from './type-parser.js';
-import { type AbiParameter } from './build.js';
+import { placeholderFor } from './test-helpers.js';
 
 import { FIXTURES } from '../test/fixtures/index.js';
-
-function placeholderPrimitive(base: string): unknown {
-  if (base === 'uint' || base === 'int' || /^u?int\d+$/.test(base)) return '0';
-  if (base === 'address') return '0x' + '0'.repeat(40);
-  if (base === 'bool') return false;
-  if (base === 'string') return '';
-  if (base === 'bytes') return '0x';
-  const m = /^bytes(\d+)$/.exec(base);
-  if (m) return '0x' + '0'.repeat(2 * Number(m[1]!));
-  throw new Error(`No placeholder for base type: ${base}`);
-}
-
-function placeholderFor(param: AbiParameter): unknown {
-  const { base, suffixes } = parseType(param.type);
-  let value: unknown;
-  if (base === 'tuple') {
-    const comps = param.components ?? [];
-    const named = comps.length > 0 && comps.every(
-      (c) => typeof c.name === 'string' && c.name !== '',
-    );
-    if (named) {
-      const obj: Record<string, unknown> = {};
-      for (const c of comps) obj[c.name as string] = placeholderFor(c);
-      value = obj;
-    } else {
-      value = comps.map(placeholderFor);
-    }
-  } else {
-    value = placeholderPrimitive(base);
-  }
-  for (const suffix of suffixes) {
-    const count = suffix ?? 1;
-    value = Array(count).fill(value);
-  }
-  return value;
-}
 
 function runFixture(relPath: string, abi: Abi) {
   const functions = filterFunctions(abi);
