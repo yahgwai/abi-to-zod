@@ -129,7 +129,7 @@ describe('generate: equivalence with abiToZod', () => {
           continue;
         }
 
-        const runtime = abiToZod(abi)[sig];
+        const runtime = (abiToZod(abi) as Record<string, z.ZodType<unknown> | undefined>)[sig];
         expect(runtime, `runtime barrel missing signature key ${sig}`).toBeDefined();
         if (!runtime) continue;
         const a = runtime.safeParse(input);

@@ -162,14 +162,17 @@ describe('abiToZod barrel', () => {
   });
 
   it('returns undefined for unknown name or signature', () => {
-    const barrel = abiToZod(simpleAbi);
+    // The typed Barrel rejects unknown keys at compile time. The runtime
+    // test below is the safety net proving no stray props slipped in;
+    // casting widens the read but the runtime shape is what we're asserting.
+    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
     expect(barrel['unknown']).toBeUndefined();
     expect(barrel['transfer(uint256)']).toBeUndefined();
   });
 
   it('omits the name key when overloaded, but keeps both signature keys', () => {
     const barrel = abiToZod(overloadedAbi);
-    expect(barrel['foo']).toBeUndefined();
+    expect((barrel as Record<string, unknown>)['foo']).toBeUndefined();
     expect(barrel['foo(uint256)']).toBeDefined();
     expect(barrel['foo(address)']).toBeDefined();
     expect(barrel['foo(uint256)']!.parse(['42'])).toEqual([42n]);
@@ -179,7 +182,7 @@ describe('abiToZod barrel', () => {
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    const barrel = abiToZod(simpleAbi);
+    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
     expect(barrel['Transfer']).toBeUndefined();
   });
 

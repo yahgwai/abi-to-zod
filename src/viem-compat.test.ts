@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeFunctionData } from 'viem';
 import type { z } from 'zod';
 import type { Abi, AbiParametersToPrimitiveTypes } from 'abitype';
-import { abiToZod, canonicalSignature, filterFunctions } from './abi.js';
+import { abiToZod, canonicalSignature, filterFunctions, type Sig } from './abi.js';
 import { type AbiParameter } from './build.js';
 import { parseType } from './type-parser.js';
 
@@ -213,7 +213,7 @@ describe('viem-compat: runtime loop over every fixture', () => {
   for (const [rel, abi] of Object.entries(FIXTURES)) {
     it(`${rel}: every function survives encodeFunctionData`, () => {
       const fns = filterFunctions(abi);
-      const barrel = abiToZod(abi);
+      const barrel = abiToZod(abi) as Record<string, z.ZodType<unknown> | undefined>;
       for (const f of fns) {
         const sig = canonicalSignature(f);
         const schema = barrel[sig];
@@ -243,33 +243,24 @@ describe('viem-compat: runtime loop over every fixture', () => {
 // function's inputs — using strict structural equality, not assignability.
 // Equal<X, Y> is needed because plain `extends` is bidirectional-assignable
 // and would let widened types slip through silently. Each fixture gets one
-// const declaration; mismatches surface as `['MISMATCH', funcName]` or
-// `['NOT_ZOD', funcName]` tuples in the assertion's RHS and fail to satisfy
-// the `{ [K]: true }` constraint on the LHS.
+// const declaration; mismatches surface as `['MISMATCH', sig]` or
+// `['NOT_ZOD', sig]` tuples in the assertion's RHS and fail to satisfy the
+// `{ [K]: true }` constraint on the LHS.
 //
-// Functions with overloaded names are intentionally not covered here: the
-// barrel only exposes them by canonical signature (a string we can't form
-// from types alone), so this assertion sticks to uniquely-named functions
-// and overloads are covered by the runtime loop above.
+// Keying by Sig<F> (not F['name']) covers overloaded functions too: every
+// function entry has a unique canonical signature, so the mapped type
+// preserves all of them without collapsing.
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-type UniqueFunctions<A extends Abi> = Extract<A[number], { type: 'function' }> extends infer F
-  ? F extends { type: 'function'; name: string }
-    ? Equal<Extract<A[number], { type: 'function'; name: F['name'] }>, F> extends true
-      ? F
-      : never
-    : never
-  : never;
-
 type Check<A extends Abi, S> = {
-  [F in UniqueFunctions<A> as F['name']]: F['name'] extends keyof S
-    ? S[F['name']] extends z.ZodType<infer R>
+  [F in Extract<A[number], { type: 'function' }> as Sig<F>]: Sig<F> extends keyof S
+    ? S[Sig<F>] extends z.ZodType<infer R>
       ? Equal<R, AbiParametersToPrimitiveTypes<F['inputs']>> extends true
         ? true
-        : ['MISMATCH', F['name']]
-      : ['NOT_ZOD', F['name']]
-    : ['MISSING', F['name']];
+        : ['MISMATCH', Sig<F>]
+      : ['NOT_ZOD', Sig<F>]
+    : ['MISSING', Sig<F>];
 };
 
 // Two lines per fixture per plan: snapshot the barrel into a const so its

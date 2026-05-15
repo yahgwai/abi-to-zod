@@ -119,7 +119,7 @@ function runFixture(relPath: string, abi: Abi) {
     });
 
     it('resolves every function via barrel signature key', () => {
-      const barrel = abiToZod(abi);
+      const barrel = abiToZod(abi) as Record<string, unknown>;
       for (const f of functions) {
         const sig = canonicalSignature(f);
         expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
