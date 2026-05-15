@@ -41,12 +41,18 @@ function constNameToBase(name: string): string {
   throw new Error(`unknown const name ${name}`);
 }
 
-function asTupleParam(items: AbiParameter[]): AbiParameter {
-  return { type: 'tuple', components: items };
+// Mirror the function-level entry point: positional tuple wrap, no
+// object-ification at the top — only nested struct components opt into
+// objects per abitype's rule. Wrapping `params` into a tuple-typed
+// AbiParameter would conflate the two layers (the wrapper itself would
+// become an object whenever its components are all named).
+function asFunctionInputs(params: AbiParameter[]): z.ZodType {
+  const items = params.map((p) => buildSchema(p));
+  return z.tuple(items as [z.ZodType, ...z.ZodType[]]);
 }
 
 function expectSameParse(params: AbiParameter[], inputs: unknown) {
-  const runtime = buildSchema(asTupleParam(params));
+  const runtime = asFunctionInputs(params);
   const generated = evalRenderedTuple(params);
   const a = runtime.safeParse(inputs);
   const b = generated.safeParse(inputs);
@@ -64,7 +70,7 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
     expectSameParse(params, ['not-an-address', '100']);
   });
 
-  it('nested tuple', () => {
+  it('nested all-named tuple', () => {
     const params: AbiParameter[] = [
       {
         type: 'tuple',
@@ -76,7 +82,10 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
       },
       { type: 'address', name: 'c' },
     ];
-    expectSameParse(params, [['5', true], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
+    expectSameParse(params, [
+      { a: '5', b: true },
+      '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    ]);
   });
 
   it('dynamic array of uint256', () => {
@@ -97,7 +106,7 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
     expectSameParse(params, [[['1', '2']]]);
   });
 
-  it('array of tuples', () => {
+  it('array of all-named tuples', () => {
     const params: AbiParameter[] = [
       {
         type: 'tuple[]',
@@ -110,13 +119,13 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
     ];
     expectSameParse(params, [
       [
-        ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '10'],
-        ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '20'],
+        { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '10' },
+        { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '20' },
       ],
     ]);
   });
 
-  it('tuple containing array', () => {
+  it('all-named tuple containing array', () => {
     const params: AbiParameter[] = [
       {
         type: 'tuple',
@@ -127,7 +136,9 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
         ],
       },
     ];
-    expectSameParse(params, [[['1', '2'], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']]);
+    expectSameParse(params, [
+      { xs: ['1', '2'], owner: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' },
+    ]);
   });
 
   it('empty tuple', () => {

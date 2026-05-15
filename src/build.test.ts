@@ -46,13 +46,29 @@ describe('buildSchema: arrays', () => {
 });
 
 describe('buildSchema: tuples', () => {
-  it('tuple with primitive components yields positional tuple', () => {
+  it('tuple with all-named components yields an object', () => {
     const s = buildSchema({
       type: 'tuple',
       name: 'pair',
       components: [
         { type: 'address', name: 'who' },
         { type: 'uint256', name: 'amount' },
+      ],
+    });
+    const out = s.parse({ who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '100' });
+    expect(out).toEqual({
+      who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+      amount: 100n,
+    });
+  });
+
+  it('tuple with any anonymous component falls back to positional tuple', () => {
+    const s = buildSchema({
+      type: 'tuple',
+      name: 'pair',
+      components: [
+        { type: 'address', name: 'who' },
+        { type: 'uint256' },
       ],
     });
     const out = s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100']);
@@ -63,7 +79,7 @@ describe('buildSchema: tuples', () => {
     expect(() => buildSchema({ type: 'tuple', name: 'bad' })).toThrow(/components/);
   });
 
-  it('nested tuple', () => {
+  it('nested all-named tuple', () => {
     const s = buildSchema({
       type: 'tuple',
       name: 'outer',
@@ -79,11 +95,17 @@ describe('buildSchema: tuples', () => {
         { type: 'address', name: 'c' },
       ],
     });
-    const out = s.parse([['5', true], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
-    expect(out).toEqual([[5n, true], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
+    const out = s.parse({
+      inner: { a: '5', b: true },
+      c: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    });
+    expect(out).toEqual({
+      inner: { a: 5n, b: true },
+      c: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    });
   });
 
-  it('tuple containing array', () => {
+  it('all-named tuple containing array', () => {
     const s = buildSchema({
       type: 'tuple',
       name: 'withList',
@@ -92,11 +114,17 @@ describe('buildSchema: tuples', () => {
         { type: 'address', name: 'owner' },
       ],
     });
-    const out = s.parse([['1', '2'], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
-    expect(out).toEqual([[1n, 2n], '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
+    const out = s.parse({
+      xs: ['1', '2'],
+      owner: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    });
+    expect(out).toEqual({
+      xs: [1n, 2n],
+      owner: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    });
   });
 
-  it('array of tuples (tuple[])', () => {
+  it('array of all-named tuples (tuple[])', () => {
     const s = buildSchema({
       type: 'tuple[]',
       name: 'pairs',
@@ -106,36 +134,38 @@ describe('buildSchema: tuples', () => {
       ],
     });
     const input = [
-      ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '10'],
-      ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '20'],
+      { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '10' },
+      { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '20' },
     ];
     const out = s.parse(input);
     expect(out).toEqual([
-      ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', 10n],
-      ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', 20n],
+      { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: 10n },
+      { who: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: 20n },
     ]);
   });
 
-  it('fixed-size array of tuples (tuple[2])', () => {
+  it('fixed-size array of all-named tuples (tuple[2])', () => {
     const s = buildSchema({
       type: 'tuple[2]',
       name: 'pair',
       components: [{ type: 'uint256', name: 'v' }],
     });
-    expect(s.parse([['1'], ['2']])).toEqual([[1n], [2n]]);
-    expect(() => s.parse([['1']])).toThrow();
+    expect(s.parse([{ v: '1' }, { v: '2' }])).toEqual([{ v: 1n }, { v: 2n }]);
+    expect(() => s.parse([{ v: '1' }])).toThrow();
   });
 
-  it('2D array of tuples (tuple[][])', () => {
+  it('2D array of all-named tuples (tuple[][])', () => {
     const s = buildSchema({
       type: 'tuple[][]',
       name: 'grid',
       components: [{ type: 'bool', name: 'b' }],
     });
-    expect(s.parse([[[true], [false]], []])).toEqual([[[true], [false]], []]);
+    expect(
+      s.parse([[{ b: true }, { b: false }], []]),
+    ).toEqual([[{ b: true }, { b: false }], []]);
   });
 
-  it('empty tuple (no components) is allowed', () => {
+  it('empty tuple (no components) is allowed and stays positional', () => {
     const s = buildSchema({ type: 'tuple', name: 'empty', components: [] });
     expect(s.parse([])).toEqual([]);
   });

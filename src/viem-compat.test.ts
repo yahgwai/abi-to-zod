@@ -86,6 +86,30 @@ const arbInfoAbi = [
   },
 ] as const satisfies Abi;
 
+// Minimal named-struct fragment. abitype infers `placeOrder`'s arg as
+// `{ maker: \`0x${string}\`, amount: bigint }` — an object, not a tuple.
+// The encodeFunctionData call below proves our barrel delivers that exact
+// shape; if doBuild ever reverts to emitting z.tuple for named-tuple
+// components, this call fails to compile.
+const structAbi = [
+  {
+    type: 'function',
+    name: 'placeOrder',
+    inputs: [
+      {
+        name: 'order',
+        type: 'tuple',
+        components: [
+          { name: 'maker', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+        ],
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const satisfies Abi;
+
 const ADDRESS = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' as const;
 
 describe('viem-compat: TS-level (explicit named calls)', () => {
@@ -160,6 +184,15 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
       args: schemas.getCode.parse([ADDRESS]),
     });
   });
+
+  it('named-tuple input round-trips as an object', () => {
+    const schemas = abiToZod(structAbi);
+    encodeFunctionData({
+      abi: structAbi,
+      functionName: 'placeOrder',
+      args: schemas.placeOrder.parse([{ maker: ADDRESS, amount: '100' }]),
+    });
+  });
 });
 
 const fixturesDir = new URL('../test/fixtures/', import.meta.url);
@@ -183,7 +216,17 @@ function placeholderFor(param: AbiParameter): unknown {
   const { base, suffixes } = parseType(param.type);
   let value: unknown;
   if (base === 'tuple') {
-    value = (param.components ?? []).map(placeholderFor);
+    const comps = param.components ?? [];
+    const named = comps.length > 0 && comps.every(
+      (c) => typeof c.name === 'string' && c.name !== '',
+    );
+    if (named) {
+      const obj: Record<string, unknown> = {};
+      for (const c of comps) obj[c.name as string] = placeholderFor(c);
+      value = obj;
+    } else {
+      value = comps.map(placeholderFor);
+    }
   } else {
     value = placeholderPrimitive(base);
   }
@@ -192,13 +235,6 @@ function placeholderFor(param: AbiParameter): unknown {
     value = Array(count).fill(value);
   }
   return value;
-}
-
-function hasTupleInput(inputs: readonly AbiParameter[]): boolean {
-  for (const p of inputs) {
-    if (parseType(p.type).base === 'tuple') return true;
-  }
-  return false;
 }
 
 const FIXTURES = [
@@ -230,9 +266,9 @@ const FIXTURES = [
 
 describe('viem-compat: runtime loop over every fixture', () => {
   for (const rel of FIXTURES) {
-    it(`${rel}: every primitive-only function survives encodeFunctionData`, () => {
+    it(`${rel}: every function survives encodeFunctionData`, () => {
       const abi = loadAbi(rel);
-      const fns = filterFunctions(abi).filter((f) => !hasTupleInput(f.inputs));
+      const fns = filterFunctions(abi);
       const barrel = abiToZod(abi);
       for (const f of fns) {
         const sig = canonicalSignature(f);

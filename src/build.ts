@@ -31,6 +31,16 @@ export function buildSchema<const P extends AbitypeAbiParameter>(
   >;
 }
 
+// Mirrors abitype's AbiComponentsToPrimitiveType: when every struct
+// component carries a non-empty `name`, the inferred type is an object
+// keyed by those names; otherwise it's a positional tuple. We branch the
+// runtime here so it actually delivers what `buildSchema`'s typed return
+// claims. Top-level function inputs stay positional (handled in
+// abiFunctionToZod) — only struct components opt into the object shape.
+function allNamed(comps: readonly AbiParameter[]): boolean {
+  return comps.length > 0 && comps.every((c) => typeof c.name === 'string' && c.name !== '');
+}
+
 function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
   try {
     const { base, suffixes } = parseType(param.type);
@@ -40,10 +50,19 @@ function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
       if (!param.components) {
         throw new Error(`tuple type missing 'components'`);
       }
-      const componentSchemas = param.components.map((c, i) =>
-        doBuild(c, [...path, `components[${i}]`]),
-      );
-      schema = z.tuple(componentSchemas as [z.ZodType, ...z.ZodType[]]);
+      const comps = param.components;
+      if (allNamed(comps)) {
+        const shape: Record<string, z.ZodType> = {};
+        comps.forEach((c, i) => {
+          shape[c.name as string] = doBuild(c, [...path, `components[${i}]`]);
+        });
+        schema = z.strictObject(shape);
+      } else {
+        const componentSchemas = comps.map((c, i) =>
+          doBuild(c, [...path, `components[${i}]`]),
+        );
+        schema = z.tuple(componentSchemas as [z.ZodType, ...z.ZodType[]]);
+      }
     } else {
       schema = primitiveSchema(base);
     }
@@ -99,7 +118,9 @@ export function renderSchemaSource(
       if (!param.components) {
         throw new Error(`tuple type missing 'components'`);
       }
-      expr = renderTupleSource(param.components, resolver, indent, path);
+      expr = allNamed(param.components)
+        ? renderObjectSource(param.components, resolver, indent, path)
+        : renderTupleSource(param.components, resolver, indent, path);
     } else {
       expr = resolver(base);
     }
@@ -131,6 +152,20 @@ export function renderTupleSource(
     return `${childIndent}${commentFor(p)}${expr},`;
   });
   return `z.tuple([\n${items.join('\n')}\n${indent}])`;
+}
+
+export function renderObjectSource(
+  params: readonly AbiParameter[],
+  resolver: PrimitiveResolver,
+  indent: string = '',
+  path: readonly string[] = [],
+): string {
+  const childIndent = indent + '  ';
+  const items = params.map((p, i) => {
+    const expr = renderSchemaSource(p, resolver, childIndent, [...path, `components[${i}]`]);
+    return `${childIndent}${p.name as string}: ${expr},`;
+  });
+  return `z.strictObject({\n${items.join('\n')}\n${indent}})`;
 }
 
 export function collectPrimitives(params: readonly AbiParameter[]): Set<string> {

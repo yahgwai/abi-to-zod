@@ -26,7 +26,17 @@ function placeholderFor(param: AbiParameter): unknown {
   const { base, suffixes } = parseType(param.type);
   let value: unknown;
   if (base === 'tuple') {
-    value = (param.components ?? []).map(placeholderFor);
+    const comps = param.components ?? [];
+    const named = comps.length > 0 && comps.every(
+      (c) => typeof c.name === 'string' && c.name !== '',
+    );
+    if (named) {
+      const obj: Record<string, unknown> = {};
+      for (const c of comps) obj[c.name as string] = placeholderFor(c);
+      value = obj;
+    } else {
+      value = comps.map(placeholderFor);
+    }
   } else {
     value = placeholderPrimitive(base);
   }

@@ -38,7 +38,9 @@ function evalGenerated(source: string): {
   return { schemas };
 }
 
-function placeholderForType(type: string, components?: readonly unknown[]): unknown {
+type TupleComponent = { name?: string; type: string; components?: readonly TupleComponent[] };
+
+function placeholderForType(type: string, components?: readonly TupleComponent[]): unknown {
   if (type === 'address') return '0x0000000000000000000000000000000000000000';
   if (type === 'bool') return false;
   if (type === 'string') return 'x';
@@ -54,17 +56,21 @@ function placeholderForType(type: string, components?: readonly unknown[]): unkn
     return Array.from({ length: n }, () => placeholderForType(inner, components));
   }
   if (type === 'tuple') {
-    return (components ?? []).map((c) => {
-      const cc = c as { type: string; components?: readonly unknown[] };
-      return placeholderForType(cc.type, cc.components);
-    });
+    const comps = components ?? [];
+    const named = comps.length > 0 && comps.every(
+      (c) => typeof c.name === 'string' && c.name !== '',
+    );
+    if (named) {
+      const obj: Record<string, unknown> = {};
+      for (const c of comps) obj[c.name as string] = placeholderForType(c.type, c.components);
+      return obj;
+    }
+    return comps.map((c) => placeholderForType(c.type, c.components));
   }
   throw new Error(`no placeholder for ${type}`);
 }
 
-function placeholderForInputs(
-  inputs: readonly { type: string; components?: readonly unknown[] }[],
-): unknown[] {
+function placeholderForInputs(inputs: readonly TupleComponent[]): unknown[] {
   return inputs.map((p) => placeholderForType(p.type, p.components));
 }
 
