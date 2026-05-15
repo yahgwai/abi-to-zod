@@ -1,47 +1,29 @@
-import { parseType } from './type-parser.js';
-import { type AbiParameter } from './build.js';
+import type { z } from 'zod';
+import type {
+  Abi,
+  AbiFunction,
+  AbiParameter,
+  AbiParametersToPrimitiveTypes,
+} from 'abitype';
+import { type AbiParameter as LooseAbiParameter, canonicalType } from './build.js';
 import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
 
-function normalizeBase(base: string): string {
-  if (base === 'uint') return 'uint256';
-  if (base === 'int') return 'int256';
-  return base;
-}
-
-function canonicalType(param: AbiParameter): string {
-  const { base, suffixes } = parseType(param.type);
-  let s: string;
-  if (base === 'tuple') {
-    s = `(${(param.components ?? []).map(canonicalType).join(',')})`;
-  } else {
-    s = normalizeBase(base);
-  }
-  for (const suffix of suffixes) {
-    s += suffix === null ? '[]' : `[${suffix}]`;
-  }
-  return s;
-}
+export type { Abi };
+export { canonicalType };
 
 export function canonicalSignature(entry: AbiFunctionEntry): string {
   return `${entry.name}(${entry.inputs.map(canonicalType).join(',')})`;
 }
 
-function normalizeQuerySignature(sig: string): string {
-  return sig.replace(/\b(u?int)(?![a-zA-Z0-9_])/g, '$1256');
-}
-
-export type AbiEntry = {
-  readonly type?: string;
-  readonly name?: string;
-  readonly inputs?: readonly AbiParameter[];
-  readonly outputs?: readonly AbiParameter[];
-};
-export type Abi = readonly AbiEntry[];
-
-function filterFunctions(abi: Abi): AbiFunctionEntry[] {
+export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   const out: AbiFunctionEntry[] = [];
   for (let i = 0; i < abi.length; i++) {
-    const e = abi[i]!;
+    const e = abi[i] as {
+      type?: string;
+      name?: unknown;
+      inputs?: unknown;
+      outputs?: readonly LooseAbiParameter[];
+    };
     if (e.type !== 'function') continue;
     if (typeof e.name !== 'string') {
       throw new Error(`abi[${i}]: function entry has missing or non-string 'name'`);
@@ -51,32 +33,97 @@ function filterFunctions(abi: Abi): AbiFunctionEntry[] {
         `abi[${i}] (${e.name}): function entry has missing or non-array 'inputs'`,
       );
     }
-    out.push(e as AbiFunctionEntry);
+    out.push(e as unknown as AbiFunctionEntry);
   }
   return out;
 }
 
-export function abiToZod(abi: Abi, nameOrSignature: string) {
-  const functions = filterFunctions(abi);
+// Standard "are these two types identical" trick. Used both to filter
+// unambiguous name keys and to anchor the assertion in viem-compat tests.
+type Equal<X, Y> =
+  (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-  if (nameOrSignature.includes('(')) {
-    const target = normalizeQuerySignature(nameOrSignature);
-    const match = functions.find((f) => canonicalSignature(f) === target);
-    if (!match) {
-      throw new Error(`No function found with signature: ${nameOrSignature}`);
-    }
-    return abiFunctionToZod(match);
-  }
+// Peel array suffixes off a Solidity type string. Mirrors what parseType
+// does at runtime: `'uint256[][3]'` -> `['uint256', '[][3]']`.
+type SplitArraySuffix<T extends string, Acc extends string = ''> =
+  T extends `${infer Base}[${infer Size}]`
+    ? SplitArraySuffix<Base, `[${Size}]${Acc}`>
+    : [T, Acc];
 
-  const byName = functions.filter((f) => f.name === nameOrSignature);
-  if (byName.length === 0) {
-    throw new Error(`No function named: ${nameOrSignature}`);
+type NormalizeBase<B extends string> = B extends 'uint'
+  ? 'uint256'
+  : B extends 'int'
+    ? 'int256'
+    : B;
+
+// Comma-join the canonical types of an ABI parameter tuple.
+type ParamsToCanonicalString<P extends readonly AbiParameter[]> =
+  P extends readonly [
+    infer Head extends AbiParameter,
+    ...infer Tail extends readonly AbiParameter[],
+  ]
+    ? Tail extends readonly []
+      ? CanonicalTypeOf<Head>
+      : `${CanonicalTypeOf<Head>},${ParamsToCanonicalString<Tail>}`
+    : '';
+
+// Canonical Solidity type for a single parameter — must match
+// canonicalType() in build.ts character-for-character. Tuple components
+// render as `(child1,child2,...)`, then the parsed array suffixes are
+// appended verbatim.
+type CanonicalTypeOf<P extends AbiParameter> =
+  SplitArraySuffix<P['type']> extends [
+    infer Base extends string,
+    infer Suffix extends string,
+  ]
+    ? Base extends 'tuple'
+      ? P extends { components: infer C extends readonly AbiParameter[] }
+        ? `(${ParamsToCanonicalString<C>})${Suffix}`
+        : never
+      : `${NormalizeBase<Base>}${Suffix}`
+    : never;
+
+// Canonical `name(inputTypes...)` signature for a function — must equal
+// canonicalSignature(f) at runtime for the same entry, otherwise barrel
+// lookups by signature key mismatch.
+export type Sig<F extends AbiFunction> =
+  `${F['name']}(${ParamsToCanonicalString<F['inputs']>})`;
+
+type FunctionEntries<A extends Abi> = Extract<A[number], { type: 'function' }>;
+
+type SchemaFor<F extends AbiFunction> = z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>;
+
+// Unambiguous function name -> schema. Overloaded names map to `never` so
+// callers must reach for the signature key instead, mirroring runtime
+// (abiToZod only writes the bare-name slot when counts.get(name) === 1).
+type NameKeys<A extends Abi> = {
+  [F in FunctionEntries<A> as Equal<
+    Extract<FunctionEntries<A>, { name: F['name'] }>,
+    F
+  > extends true
+    ? F['name']
+    : never]: SchemaFor<F>;
+};
+
+// Every function -> schema, keyed by the canonical signature string. No
+// loose index signature: overloaded and uniquely-named functions are both
+// addressable here at exact types.
+type SignatureKeys<A extends Abi> = {
+  [F in FunctionEntries<A> as Sig<F>]: SchemaFor<F>;
+};
+
+export type Barrel<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
+
+export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
+  const fns = filterFunctions(abi);
+  const counts = new Map<string, number>();
+  for (const f of fns) counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
+
+  const out: Record<string, z.ZodType<unknown>> = {};
+  for (const f of fns) {
+    const schema = abiFunctionToZod(f) as z.ZodType<unknown>;
+    out[canonicalSignature(f)] = schema;
+    if (counts.get(f.name) === 1) out[f.name] = schema;
   }
-  if (byName.length > 1) {
-    const sigs = byName.map(canonicalSignature).join(', ');
-    throw new Error(
-      `Ambiguous function name "${nameOrSignature}". Found: ${sigs}. Disambiguate with the full signature.`,
-    );
-  }
-  return abiFunctionToZod(byName[0]!);
+  return out as Barrel<A>;
 }

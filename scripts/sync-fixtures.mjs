@@ -12,8 +12,11 @@ function extractAbi(artifactPath, outPath) {
     throw new Error(`Missing artifact: ${artifactPath}`);
   }
   const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+  const body =
+    `import type { Abi } from 'abitype';\n\n` +
+    `export const abi = ${JSON.stringify(artifact.abi, null, 2)} as const satisfies Abi;\n`;
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify(artifact.abi, null, 2) + '\n');
+  writeFileSync(outPath, body);
   console.log(`wrote ${outPath} (${artifact.abi.length} entries)`);
 }
 
@@ -25,7 +28,7 @@ const precompiles = [
 for (const name of precompiles) {
   extractAbi(
     join(nmBase, `precompiles/${name}.sol/${name}.json`),
-    join(outBase, `arbitrum/precompiles/${name}.json`),
+    join(outBase, `arbitrum/precompiles/${name}.ts`),
   );
 }
 
@@ -42,6 +45,6 @@ const l1 = [
 for (const [subpath, name] of l1) {
   extractAbi(
     join(nmBase, `${subpath}/${name}.json`),
-    join(outBase, `arbitrum/l1/${name}.json`),
+    join(outBase, `arbitrum/l1/${name}.ts`),
   );
 }

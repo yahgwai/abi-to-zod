@@ -17,7 +17,7 @@ describe('primitiveSchema: uint', () => {
   it('rejects overflow', () => {
     const s = primitiveSchema('uint8');
     expect(() => s.parse('256')).toThrow();
-    expect(s.parse('255')).toBe(255n);
+    expect(s.parse('255')).toBe(255);
   });
 
   it('uint256 accepts 2^256 - 1', () => {
@@ -77,8 +77,8 @@ describe('primitiveSchema: int', () => {
 
   it('enforces range for int8', () => {
     const s = primitiveSchema('int8');
-    expect(s.parse('127')).toBe(127n);
-    expect(s.parse('-128')).toBe(-128n);
+    expect(s.parse('127')).toBe(127);
+    expect(s.parse('-128')).toBe(-128);
     expect(() => s.parse('128')).toThrow();
     expect(() => s.parse('-129')).toThrow();
   });

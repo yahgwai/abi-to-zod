@@ -1,4 +1,6 @@
-[
+import type { Abi } from 'abitype';
+
+export const abi = [
   {
     "anonymous": false,
     "inputs": [
@@ -689,4 +691,4 @@
     "stateMutability": "nonpayable",
     "type": "function"
   }
-]
+] as const satisfies Abi;

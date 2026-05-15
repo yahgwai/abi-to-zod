@@ -1,15 +1,60 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { abiToZod, canonicalSignature, type Abi } from './abi.js';
-import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
+import { abiToZod, canonicalSignature, filterFunctions, type Abi } from './abi.js';
+import { abiFunctionToZod } from './function.js';
 import { parseType } from './type-parser.js';
 import { type AbiParameter } from './build.js';
 
-const fixturesDir = new URL('../test/fixtures/', import.meta.url);
+import { abi as erc20Abi } from '../test/fixtures/erc/ERC20.js';
+import { abi as erc721Abi } from '../test/fixtures/erc/ERC721.js';
+import { abi as erc1155Abi } from '../test/fixtures/erc/ERC1155.js';
+import { abi as arbSysAbi } from '../test/fixtures/arbitrum/precompiles/ArbSys.js';
+import { abi as arbGasInfoAbi } from '../test/fixtures/arbitrum/precompiles/ArbGasInfo.js';
+import { abi as arbOwnerAbi } from '../test/fixtures/arbitrum/precompiles/ArbOwner.js';
+import { abi as arbOwnerPublicAbi } from '../test/fixtures/arbitrum/precompiles/ArbOwnerPublic.js';
+import { abi as arbRetryableTxAbi } from '../test/fixtures/arbitrum/precompiles/ArbRetryableTx.js';
+import { abi as arbAddressTableAbi } from '../test/fixtures/arbitrum/precompiles/ArbAddressTable.js';
+import { abi as arbAggregatorAbi } from '../test/fixtures/arbitrum/precompiles/ArbAggregator.js';
+import { abi as arbWasmAbi } from '../test/fixtures/arbitrum/precompiles/ArbWasm.js';
+import { abi as arbStatisticsAbi } from '../test/fixtures/arbitrum/precompiles/ArbStatistics.js';
+import { abi as arbInfoAbi } from '../test/fixtures/arbitrum/precompiles/ArbInfo.js';
+import { abi as inboxAbi } from '../test/fixtures/arbitrum/l1/Inbox.js';
+import { abi as outboxAbi } from '../test/fixtures/arbitrum/l1/Outbox.js';
+import { abi as bridgeAbi } from '../test/fixtures/arbitrum/l1/Bridge.js';
+import { abi as nodeInterfaceAbi } from '../test/fixtures/arbitrum/l1/NodeInterface.js';
+import { abi as sequencerInboxAbi } from '../test/fixtures/arbitrum/l1/SequencerInbox.js';
+import { abi as rollupAdminLogicAbi } from '../test/fixtures/arbitrum/l1/RollupAdminLogic.js';
+import { abi as rollupUserLogicAbi } from '../test/fixtures/arbitrum/l1/RollupUserLogic.js';
+import { abi as edgeChallengeManagerAbi } from '../test/fixtures/arbitrum/l1/EdgeChallengeManager.js';
+import { abi as uniswapV2RouterAbi } from '../test/fixtures/mainnet/UniswapV2Router.js';
+import { abi as uniswapV3SwapRouterAbi } from '../test/fixtures/mainnet/UniswapV3SwapRouter.js';
+import { abi as seaportAbi } from '../test/fixtures/mainnet/Seaport.js';
 
-function loadAbi(relPath: string): Abi {
-  return JSON.parse(readFileSync(new URL(relPath, fixturesDir), 'utf8'));
-}
+const FIXTURES = {
+  'erc/ERC20.ts': erc20Abi,
+  'erc/ERC721.ts': erc721Abi,
+  'erc/ERC1155.ts': erc1155Abi,
+  'arbitrum/precompiles/ArbSys.ts': arbSysAbi,
+  'arbitrum/precompiles/ArbGasInfo.ts': arbGasInfoAbi,
+  'arbitrum/precompiles/ArbOwner.ts': arbOwnerAbi,
+  'arbitrum/precompiles/ArbOwnerPublic.ts': arbOwnerPublicAbi,
+  'arbitrum/precompiles/ArbRetryableTx.ts': arbRetryableTxAbi,
+  'arbitrum/precompiles/ArbAddressTable.ts': arbAddressTableAbi,
+  'arbitrum/precompiles/ArbAggregator.ts': arbAggregatorAbi,
+  'arbitrum/precompiles/ArbWasm.ts': arbWasmAbi,
+  'arbitrum/precompiles/ArbStatistics.ts': arbStatisticsAbi,
+  'arbitrum/precompiles/ArbInfo.ts': arbInfoAbi,
+  'arbitrum/l1/Inbox.ts': inboxAbi,
+  'arbitrum/l1/Outbox.ts': outboxAbi,
+  'arbitrum/l1/Bridge.ts': bridgeAbi,
+  'arbitrum/l1/NodeInterface.ts': nodeInterfaceAbi,
+  'arbitrum/l1/SequencerInbox.ts': sequencerInboxAbi,
+  'arbitrum/l1/RollupAdminLogic.ts': rollupAdminLogicAbi,
+  'arbitrum/l1/RollupUserLogic.ts': rollupUserLogicAbi,
+  'arbitrum/l1/EdgeChallengeManager.ts': edgeChallengeManagerAbi,
+  'mainnet/UniswapV2Router.ts': uniswapV2RouterAbi,
+  'mainnet/UniswapV3SwapRouter.ts': uniswapV3SwapRouterAbi,
+  'mainnet/Seaport.ts': seaportAbi,
+} as const;
 
 function placeholderPrimitive(base: string): unknown {
   if (base === 'uint' || base === 'int' || /^u?int\d+$/.test(base)) return '0';
@@ -26,7 +71,17 @@ function placeholderFor(param: AbiParameter): unknown {
   const { base, suffixes } = parseType(param.type);
   let value: unknown;
   if (base === 'tuple') {
-    value = (param.components ?? []).map(placeholderFor);
+    const comps = param.components ?? [];
+    const named = comps.length > 0 && comps.every(
+      (c) => typeof c.name === 'string' && c.name !== '',
+    );
+    if (named) {
+      const obj: Record<string, unknown> = {};
+      for (const c of comps) obj[c.name as string] = placeholderFor(c);
+      value = obj;
+    } else {
+      value = comps.map(placeholderFor);
+    }
   } else {
     value = placeholderPrimitive(base);
   }
@@ -37,12 +92,8 @@ function placeholderFor(param: AbiParameter): unknown {
   return value;
 }
 
-function runFixture(relPath: string) {
-  const abi = loadAbi(relPath);
-  const functions = abi.filter(
-    (e): e is AbiFunctionEntry =>
-      e.type === 'function' && typeof e.name === 'string' && Array.isArray(e.inputs),
-  );
+function runFixture(relPath: string, abi: Abi) {
+  const functions = filterFunctions(abi);
 
   describe(relPath, () => {
     it(`builds a schema for every function (${functions.length} fns)`, () => {
@@ -67,13 +118,11 @@ function runFixture(relPath: string) {
       }
     });
 
-    it('resolves every function via abiToZod(sig)', () => {
+    it('resolves every function via barrel signature key', () => {
+      const barrel = abiToZod(abi) as Record<string, unknown>;
       for (const f of functions) {
         const sig = canonicalSignature(f);
-        expect(
-          () => abiToZod(abi, sig),
-          `abiToZod failed for ${sig}`,
-        ).not.toThrow();
+        expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
       }
     });
 
@@ -91,27 +140,6 @@ function runFixture(relPath: string) {
   });
 }
 
-runFixture('erc/ERC20.json');
-runFixture('erc/ERC721.json');
-runFixture('erc/ERC1155.json');
-runFixture('arbitrum/precompiles/ArbSys.json');
-runFixture('arbitrum/precompiles/ArbGasInfo.json');
-runFixture('arbitrum/precompiles/ArbOwner.json');
-runFixture('arbitrum/precompiles/ArbOwnerPublic.json');
-runFixture('arbitrum/precompiles/ArbRetryableTx.json');
-runFixture('arbitrum/precompiles/ArbAddressTable.json');
-runFixture('arbitrum/precompiles/ArbAggregator.json');
-runFixture('arbitrum/precompiles/ArbWasm.json');
-runFixture('arbitrum/precompiles/ArbStatistics.json');
-runFixture('arbitrum/precompiles/ArbInfo.json');
-runFixture('arbitrum/l1/Inbox.json');
-runFixture('arbitrum/l1/Outbox.json');
-runFixture('arbitrum/l1/Bridge.json');
-runFixture('arbitrum/l1/NodeInterface.json');
-runFixture('arbitrum/l1/SequencerInbox.json');
-runFixture('arbitrum/l1/RollupAdminLogic.json');
-runFixture('arbitrum/l1/RollupUserLogic.json');
-runFixture('arbitrum/l1/EdgeChallengeManager.json');
-runFixture('mainnet/UniswapV2Router.json');
-runFixture('mainnet/UniswapV3SwapRouter.json');
-runFixture('mainnet/Seaport.json');
+for (const [rel, abi] of Object.entries(FIXTURES)) {
+  runFixture(rel, abi);
+}

@@ -161,12 +161,241 @@ Dev: `typescript`, `vitest`, `@types/node`, `@arbitrum/nitro-contracts`.
 ## Test coverage
 
 ```
-src/type-parser.test.ts    12 tests
-src/primitives.test.ts     36 tests
-src/build.test.ts          17 tests
-src/function.test.ts        6 tests
-src/abi.test.ts            14 tests
-src/integration.test.ts    96 tests
--------------------------------------
-Total                     181 tests (all passing)
+src/type-parser.test.ts        12 tests
+src/primitives.test.ts         36 tests
+src/primitives-source.test.ts  15 tests
+src/primitives-spec.test.ts     8 tests
+src/build.test.ts              20 tests
+src/build-source.test.ts       16 tests
+src/function.test.ts            6 tests
+src/abi.test.ts                17 tests
+src/integration.test.ts        96 tests
+src/codegen.test.ts            33 tests
+src/cli.test.ts                 3 tests
+src/golden.test.ts             25 tests
+-----------------------------------------
+Total                         287 tests (all passing)
 ```
+
+## Phase 8 — codegen
+
+Plan: see `docs/codegen-plan.md`. Notes here cover decisions / deviations.
+
+### Shared primitive dispatch
+
+`primitives.ts` now exposes three flavours via one `dispatchPrimitive<T>`
+table: `primitiveSchema` (zod), `primitiveSource` (TS source string), and
+`primitiveConstName` (the hoisted const identifier, e.g. `UINT256`).
+`dispatchPrimitive<z.ZodType>(...)` requires the explicit generic arg — TS
+otherwise infers `T` from the first handler and the others fail to unify.
+
+### Renderer / collector lives in build.ts
+
+`renderSchemaSource`, `renderTupleSource`, and `collectPrimitives` sit next
+to `buildSchema` because they share the same parse + walk shape. Renderers
+take a `PrimitiveResolver` so codegen can route leaves to the hoisted
+consts. The collector is a separate pass over the param tree (the plan
+flagged this as simpler than threading a set through the renderer).
+
+### canonicalType moved to build.ts
+
+Previously local to `abi.ts`; now exported from `build.ts` since both the
+runtime path and the renderer need it. `abi.ts` re-exports for backward
+compatibility of the public API.
+
+### Barrel key ordering
+
+Plan: "name keys (unambiguous only), then signature keys." Each group is
+sorted lexicographically. Signature keys are always present (overloaded
+functions appear only in this group). Name keys reference the hoisted
+`<name>Schema`; overload-only signature keys inline the tuple expression.
+
+### Quote style for barrel signature keys
+
+`JSON.stringify(key)` would emit double-quoted keys; switched to literal
+single quotes to match the rest of the file (`import { z } from 'zod';`)
+and the plan's example. Signatures are guaranteed not to contain `'`.
+
+### Generator version
+
+`generate(abi, sourceName?)` reads `version` from the closest `package.json`
+relative to the compiled module location (works for both `src/` during
+tests and `dist/` after build).
+
+### Source eval in tests
+
+Generated source contains the TS-only `as `0x${string}`` cast on the hex
+transforms. The equivalence tests strip that cast with a regex and pass the
+remainder through `new Function('z', ...)`. Easier than wiring up `tsx`
+just for tests; only the runtime behaviour needs verifying, not the typing.
+
+### CLI types
+
+`tsconfig.json` had no explicit `types` field; vitest had been pulling in
+node typings transitively from test files. Once `**/*.test.ts` is excluded
+for the build, the side-effect goes away and `tsc -p tsconfig.build.json`
+loses `node:*` and `process`. Added `"types": ["node"]` to fix the build.
+
+### Golden fixtures
+
+24 generator outputs committed to `test/fixtures-generated/` mirroring the
+fixture tree. `scripts/regenerate-golden.mjs` rewrites them; `npm run
+regenerate:golden` builds first then runs the script. `golden.test.ts`
+regenerates in memory and asserts byte-equal to catch accidental drift.
+
+## Phase 9 — spec-driven primitives
+
+`SCHEMA_HANDLERS` and `SOURCE_HANDLERS` were two parallel tables, one per
+primitive variant. Tweaking validation rules meant editing both and
+relying on tests to catch the asymmetry. Replaced with a single
+`SPEC_HANDLERS` table that produces an `Op` list per variant; two
+interpreters (`specToZod`, `specToSource`) consume the same spec.
+
+### Structural drift prevention
+
+Both interpreters end with `const _exhaustive: never = op`. Adding a new
+`Op` variant without handling it in both fails to compile (`{ op: 'X' }
+is not assignable to type 'never'`). The drift between runtime and
+codegen is now bounded by the `Op` union's vocabulary: as long as new
+validation patterns are expressed as new ops, both paths stay in sync by
+construction.
+
+### What the spec covers vs doesn't
+
+Covered: every primitive currently shipped (string, boolean, regex,
+transformBigInt, transformHex, refineBigIntBound). Future features
+named in `FUTURE.md` that fit the existing ops (hex-input for ints =
+regex change) need no new vocabulary. Features that don't fit (EIP-55
+conditional checksum, coercion modes) require extending the `Op` union
+— a deliberate vocabulary decision rather than a silent fork between the
+two paths.
+
+### BoundExpr keeps value + source
+
+`refineBigIntBound` carries `{ value: bigint, source: string }` for each
+bound — value drives the runtime predicate, source drives codegen
+output. Two adjacent fields in one place vs the previous "two handler
+bodies in two files." A dedicated test cross-checks each width: evaluate
+`source` as JS, compare to `value`. So even the localized drift surface
+(value vs source) is pinned.
+
+### What the spec doesn't cover
+
+The walker (tuple / array / suffix logic) in `buildSchema` vs
+`renderSchemaSource` is still parallel. Considered abstracting into a
+generic `walkParam<T>(ops)` but the indent state needed for codegen's
+pretty-printed tuples doesn't fit a stateless walker cleanly, and the
+recursion structure is small (6-line shape, fixed by Solidity's
+grammar). Drift risk there is low and the existing tuple/array tests in
+`build-source.test.ts` exercise it directly. Documented here as a
+deliberate non-goal.
+
+### Error messages
+
+Spec ops carry optional `message` strings. `specToZod` attaches them to
+the zod schema; `specToSource` omits them — matching the plan's
+"customise once" output format where the user adds their own messages
+on the generated file. No drift: the message lives once in the spec,
+each interpreter decides whether to consume it.
+
+### Spec is typed as [RootOp, ...ChainOp[]]
+
+First pass had `Spec = readonly Op[]` with `if (!s) throw` guards in
+every chain op to satisfy `z.ZodType | undefined`. Tightened to a
+tuple type: the first element is a root op (`string` / `boolean`) that
+produces the initial schema; the rest are chain ops that take a prior
+schema as input. The interpreters split into `applyRoot` + `applyChainZod`
+(and the source equivalents), each with its own exhaustiveness check,
+so adding a new RootOp or ChainOp variant must update both paths or
+fail to compile. Drops the undefined-schema guards and the empty-spec
+runtime check.
+
+## Phase 10 — abiToZod barrel + tight runtime types
+
+### abitype as the type-source of truth
+
+`buildSchema` and `abiFunctionToZod` now return narrow
+`z.ZodType<AbiParameterToPrimitiveType<P>>` /
+`z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>`. Both keep their
+existing runtime impl on the loose local `AbiParameter` shape and cast at
+the public boundary — internal recursion doesn't need to satisfy the
+abitype discriminated union. The win: `z.infer<typeof schema>` is the
+exact type viem's `encodeFunctionData` expects for the same `as const`
+ABI, with no per-call cast required.
+
+### Primitive mapping aligned with abitype
+
+abitype's default register maps `int<M>` / `uint<M>` to `number` when
+`M <= 48` and to `bigint` otherwise. Our old behaviour transformed every
+width to `bigint`. Added a `transformBigIntToNumber` chain op and append
+it to the spec for widths ≤ 48 — the bound check stays on `bigint` to
+avoid precision concerns at the small-width boundary. Larger widths,
+address, bytes, bool and string already matched. Runtime behaviour
+change: e.g. `primitiveSchema('uint8').parse('255')` now returns `255`,
+not `255n`. The threshold matches `ResolvedRegister['intType']` vs
+`ResolvedRegister['bigIntType']`.
+
+### Named-tuple components emit `z.strictObject`
+
+abitype's `AbiComponentsToPrimitiveType` maps a struct to an object
+keyed by component names when every component has a non-empty `name`,
+and to a positional tuple otherwise. We mirror that exactly in
+`doBuild` and `renderSchemaSource`: all-named struct components →
+`z.strictObject({ [name]: schema, ... })`, anything else (any
+anonymous component, or zero components) → `z.tuple([...])`.
+`strictObject` (not `object`) so excess keys are rejected — matches
+abitype's no-extra-keys structural typing.
+
+Function-level inputs always stay positional. `abiFunctionToZod` wraps
+the per-input schemas in `z.tuple(...)` regardless of input naming, and
+`renderTupleSource` keeps the same shape for codegen output. Only
+struct components opt into the object form.
+
+Without this branch, the typed return on `buildSchema` was a lie for
+every named-tuple component: TS inferred an object, runtime delivered a
+positional array, and the viem-compat runtime loop was hiding the drift
+behind a `!hasTupleInput` filter. The filter is gone; every function in
+every fixture now goes through `encodeFunctionData`.
+
+### abiToZod is a barrel, not a lookup
+
+`abiToZod(abi)` returns `Barrel<A>` with:
+- Signature keys for every function (canonical sig form), always
+  present.
+- Name keys for unambiguous functions only — overloaded names get no
+  name key, so `barrel.foo` is `undefined` at runtime when `foo` is
+  overloaded, while both `barrel['foo(uint256)']` and
+  `barrel['foo(address)']` exist.
+
+The type-level filter for unambiguous names uses the standard
+`Equal<X, Y>` identity trick over `Extract<FunctionEntries, { name: N }>`.
+Construction errors (malformed function entries) still surface at
+`abiToZod(abi)` time. Dropped the old `abiToZod(abi, nameOrSignature)`
+form and the `uint`→`uint256` alias normalisation on query strings —
+barrel keys are canonical, accessors return `undefined` for unknown.
+
+### viem-compat scaffolding
+
+`src/viem-compat.test.ts` carries two coverage flavours:
+1. TS-level — inline ERC20 + ArbInfo `as const satisfies Abi`, explicit
+   named `encodeFunctionData({ ..., args: schemas.transfer.parse(...) })`
+   per function, plus a minimal named-tuple fragment whose arg
+   resolves to an object rather than an array. The call compiling
+   *is* the assertion.
+2. Runtime — loops every JSON fixture (no struct-input filter),
+   builds placeholders that match abitype's shape rule (object for
+   all-named struct components, positional otherwise), parses via the
+   barrel, and asserts viem accepts the result. Uses the bare
+   `f.name` so viem disambiguates overloads from `args` shape.
+
+### Golden output deleted
+
+The 24 generator outputs in `test/fixtures-generated/` were
+hand-eyeball goldens that turned into review noise every time the
+generator changed (the abitype primitive-mapping shift just churned 9
+of them). They never carried real signal — `codegen.test.ts` already
+asserts runtime equivalence between generated source and the live
+`abiToZod` barrel for every fixture, so the golden-byte check was
+redundant. Removed `src/golden.test.ts`; kept
+`scripts/regenerate-golden.mjs` and the `regenerate:golden` npm script
+for manual inspection while iterating on output format.

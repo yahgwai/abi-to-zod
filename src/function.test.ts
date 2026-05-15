@@ -35,7 +35,7 @@ describe('abiFunctionToZod', () => {
     ).toThrow();
   });
 
-  it('handles a function with a tuple input', () => {
+  it('handles a function with a named-tuple input (object component)', () => {
     const s = abiFunctionToZod({
       type: 'function',
       name: 'executeOrder',
@@ -50,8 +50,12 @@ describe('abiFunctionToZod', () => {
         },
       ],
     });
-    const out = s.parse([['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100']]);
-    expect(out).toEqual([['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', 100n]]);
+    const out = s.parse([
+      { maker: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '100' },
+    ]);
+    expect(out).toEqual([
+      { maker: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: 100n },
+    ]);
   });
 
   it('handles a function with an array input', () => {
