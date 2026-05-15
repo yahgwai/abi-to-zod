@@ -37,8 +37,20 @@ export function buildSchema<const P extends AbitypeAbiParameter>(
 // runtime here so it actually delivers what `buildSchema`'s typed return
 // claims. Top-level function inputs stay positional (handled in
 // abiFunctionToZod) — only struct components opt into the object shape.
-function allNamed(comps: readonly AbiParameter[]): boolean {
-  return comps.length > 0 && comps.every((c) => typeof c.name === 'string' && c.name !== '');
+//
+// Returning the typed pairs (rather than a boolean) carries the
+// "name is a non-empty string" narrowing through to the call sites,
+// so the object branch never needs an `as string` cast.
+function pickNamedComponents(
+  comps: readonly AbiParameter[],
+): readonly (readonly [string, AbiParameter])[] | null {
+  if (comps.length === 0) return null;
+  const out: (readonly [string, AbiParameter])[] = [];
+  for (const c of comps) {
+    if (typeof c.name !== 'string' || c.name === '') return null;
+    out.push([c.name, c]);
+  }
+  return out;
 }
 
 function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
@@ -50,15 +62,15 @@ function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
       if (!param.components) {
         throw new Error(`tuple type missing 'components'`);
       }
-      const comps = param.components;
-      if (allNamed(comps)) {
+      const named = pickNamedComponents(param.components);
+      if (named) {
         const shape: Record<string, z.ZodType> = {};
-        comps.forEach((c, i) => {
-          shape[c.name as string] = doBuild(c, [...path, `components[${i}]`]);
+        named.forEach(([name, c], i) => {
+          shape[name] = doBuild(c, [...path, `components[${i}]`]);
         });
         schema = z.strictObject(shape);
       } else {
-        const componentSchemas = comps.map((c, i) =>
+        const componentSchemas = param.components.map((c, i) =>
           doBuild(c, [...path, `components[${i}]`]),
         );
         schema = z.tuple(componentSchemas as [z.ZodType, ...z.ZodType[]]);
@@ -118,8 +130,9 @@ export function renderSchemaSource(
       if (!param.components) {
         throw new Error(`tuple type missing 'components'`);
       }
-      expr = allNamed(param.components)
-        ? renderObjectSource(param.components, resolver, indent, path)
+      const named = pickNamedComponents(param.components);
+      expr = named
+        ? renderObjectSource(named, resolver, indent, path)
         : renderTupleSource(param.components, resolver, indent, path);
     } else {
       expr = resolver(base);
@@ -155,15 +168,15 @@ export function renderTupleSource(
 }
 
 export function renderObjectSource(
-  params: readonly AbiParameter[],
+  named: readonly (readonly [string, AbiParameter])[],
   resolver: PrimitiveResolver,
   indent: string = '',
   path: readonly string[] = [],
 ): string {
   const childIndent = indent + '  ';
-  const items = params.map((p, i) => {
-    const expr = renderSchemaSource(p, resolver, childIndent, [...path, `components[${i}]`]);
-    return `${childIndent}${p.name as string}: ${expr},`;
+  const items = named.map(([name, param], i) => {
+    const expr = renderSchemaSource(param, resolver, childIndent, [...path, `components[${i}]`]);
+    return `${childIndent}${name}: ${expr},`;
   });
   return `z.strictObject({\n${items.join('\n')}\n${indent}})`;
 }
