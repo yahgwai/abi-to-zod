@@ -1,4 +1,6 @@
-[
+import type { Abi } from 'abitype';
+
+export const abi = [
   {
     "inputs": [],
     "name": "getAmortizedCostCapBips",
@@ -442,4 +444,4 @@
     "stateMutability": "view",
     "type": "function"
   }
-]
+] as const satisfies Abi;
