@@ -1,4 +1,6 @@
-[
+import type { Abi } from 'abitype';
+
+export const abi = [
   {
     "inputs": [],
     "name": "NoTicketWithID",
@@ -294,4 +296,4 @@
     "stateMutability": "nonpayable",
     "type": "function"
   }
-]
+] as const satisfies Abi;

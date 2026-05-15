@@ -1,4 +1,6 @@
-[
+import type { Abi } from 'abitype';
+
+export const abi = [
   {
     "inputs": [
       {
@@ -317,4 +319,4 @@
     "stateMutability": "pure",
     "type": "function"
   }
-]
+] as const satisfies Abi;

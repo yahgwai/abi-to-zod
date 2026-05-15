@@ -1,4 +1,6 @@
-[
+import type { Abi } from 'abitype';
+
+export const abi = [
   {
     "anonymous": false,
     "inputs": [
@@ -16,19 +18,6 @@
       }
     ],
     "name": "AdminChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "anyTrustFastConfirmer",
-        "type": "address"
-      }
-    ],
-    "name": "AnyTrustFastConfirmerSet",
     "type": "event"
   },
   {
@@ -241,45 +230,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "bytes32",
-        "name": "assertionHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "AssertionForceConfirmed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "assertionHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "AssertionForceCreated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newBaseStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "BaseStakeSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "address",
         "name": "beacon",
         "type": "address"
@@ -293,122 +243,12 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "address",
-        "name": "challengeManager",
-        "type": "address"
-      }
-    ],
-    "name": "ChallengeManagerSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "newConfirmPeriod",
-        "type": "uint64"
-      }
-    ],
-    "name": "ConfirmPeriodBlocksSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "inbox",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "enabled",
-        "type": "bool"
-      }
-    ],
-    "name": "DelayedInboxSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "inbox",
-        "type": "address"
-      }
-    ],
-    "name": "InboxSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
         "internalType": "uint8",
         "name": "version",
         "type": "uint8"
       }
     ],
     "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newLoserStakerEscrow",
-        "type": "address"
-      }
-    ],
-    "name": "LoserStakeEscrowSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPeriod",
-        "type": "uint256"
-      }
-    ],
-    "name": "MinimumAssertionPeriodSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "outbox",
-        "type": "address"
-      }
-    ],
-    "name": "OldOutboxRemoved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "outbox",
-        "type": "address"
-      }
-    ],
-    "name": "OutboxSet",
     "type": "event"
   },
   {
@@ -472,32 +312,6 @@
       }
     ],
     "name": "RollupInitialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newSequencerInbox",
-        "type": "address"
-      }
-    ],
-    "name": "SequencerInboxSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address[]",
-        "name": "staker",
-        "type": "address[]"
-      }
-    ],
-    "name": "StakersForceRefunded",
     "type": "event"
   },
   {
@@ -596,64 +410,6 @@
     "type": "event"
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPeriod",
-        "type": "uint256"
-      }
-    ],
-    "name": "ValidatorAfkBlocksSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "_validatorWhitelistDisabled",
-        "type": "bool"
-      }
-    ],
-    "name": "ValidatorWhitelistDisabledSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address[]",
-        "name": "validators",
-        "type": "address[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool[]",
-        "name": "enabled",
-        "type": "bool[]"
-      }
-    ],
-    "name": "ValidatorsSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "newWasmModuleRoot",
-        "type": "bytes32"
-      }
-    ],
-    "name": "WasmModuleRootSet",
-    "type": "event"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -690,6 +446,29 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "stakerAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "expectedWithdrawalAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "addToDeposit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -790,6 +569,158 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "prevAssertionHash",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "bytes32[2]",
+                "name": "bytes32Vals",
+                "type": "bytes32[2]"
+              },
+              {
+                "internalType": "uint64[2]",
+                "name": "u64Vals",
+                "type": "uint64[2]"
+              }
+            ],
+            "internalType": "struct GlobalState",
+            "name": "globalState",
+            "type": "tuple"
+          },
+          {
+            "internalType": "enum MachineStatus",
+            "name": "machineStatus",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "endHistoryRoot",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct AssertionState",
+        "name": "state",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "inboxAcc",
+        "type": "bytes32"
+      }
+    ],
+    "name": "computeAssertionHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "assertionHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "prevAssertionHash",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "bytes32[2]",
+                "name": "bytes32Vals",
+                "type": "bytes32[2]"
+              },
+              {
+                "internalType": "uint64[2]",
+                "name": "u64Vals",
+                "type": "uint64[2]"
+              }
+            ],
+            "internalType": "struct GlobalState",
+            "name": "globalState",
+            "type": "tuple"
+          },
+          {
+            "internalType": "enum MachineStatus",
+            "name": "machineStatus",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "endHistoryRoot",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct AssertionState",
+        "name": "confirmState",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "winningEdgeId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "wasmModuleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "requiredStake",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "challengeManager",
+            "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "confirmPeriodBlocks",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "nextInboxPosition",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct ConfigData",
+        "name": "prevConfig",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "inboxAcc",
+        "type": "bytes32"
+      }
+    ],
+    "name": "confirmAssertion",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "confirmPeriodBlocks",
     "outputs": [
@@ -800,24 +731,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newBaseStake",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint64",
-        "name": "latestNextInboxPosition",
-        "type": "uint64"
-      }
-    ],
-    "name": "decreaseBaseStake",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -872,18 +785,13 @@
         "type": "bytes32"
       }
     ],
-    "name": "forceConfirmAssertion",
+    "name": "fastConfirmAssertion",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "prevAssertionHash",
-        "type": "bytes32"
-      },
       {
         "components": [
           {
@@ -1014,20 +922,7 @@
         "type": "bytes32"
       }
     ],
-    "name": "forceCreateAssertion",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address[]",
-        "name": "staker",
-        "type": "address[]"
-      }
-    ],
-    "name": "forceRefundStaker",
+    "name": "fastConfirmNewAssertion",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1247,259 +1142,14 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "newBaseStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "increaseBaseStake",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint64",
-            "name": "confirmPeriodBlocks",
-            "type": "uint64"
-          },
-          {
-            "internalType": "address",
-            "name": "stakeToken",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "baseStake",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "wasmModuleRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "address",
-            "name": "owner",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "loserStakeEscrow",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "chainId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "string",
-            "name": "chainConfig",
-            "type": "string"
-          },
-          {
-            "internalType": "uint256",
-            "name": "minimumAssertionPeriod",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint64",
-            "name": "validatorAfkBlocks",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint256[]",
-            "name": "miniStakeValues",
-            "type": "uint256[]"
-          },
-          {
-            "components": [
-              {
-                "internalType": "uint256",
-                "name": "delayBlocks",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "futureBlocks",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "delaySeconds",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "futureSeconds",
-                "type": "uint256"
-              }
-            ],
-            "internalType": "struct ISequencerInbox.MaxTimeVariation",
-            "name": "sequencerInboxMaxTimeVariation",
-            "type": "tuple"
-          },
-          {
-            "internalType": "uint256",
-            "name": "layerZeroBlockEdgeHeight",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "layerZeroBigStepEdgeHeight",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "layerZeroSmallStepEdgeHeight",
-            "type": "uint256"
-          },
-          {
-            "components": [
-              {
-                "components": [
-                  {
-                    "internalType": "bytes32[2]",
-                    "name": "bytes32Vals",
-                    "type": "bytes32[2]"
-                  },
-                  {
-                    "internalType": "uint64[2]",
-                    "name": "u64Vals",
-                    "type": "uint64[2]"
-                  }
-                ],
-                "internalType": "struct GlobalState",
-                "name": "globalState",
-                "type": "tuple"
-              },
-              {
-                "internalType": "enum MachineStatus",
-                "name": "machineStatus",
-                "type": "uint8"
-              },
-              {
-                "internalType": "bytes32",
-                "name": "endHistoryRoot",
-                "type": "bytes32"
-              }
-            ],
-            "internalType": "struct AssertionState",
-            "name": "genesisAssertionState",
-            "type": "tuple"
-          },
-          {
-            "internalType": "uint256",
-            "name": "genesisInboxCount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "anyTrustFastConfirmer",
-            "type": "address"
-          },
-          {
-            "internalType": "uint8",
-            "name": "numBigStepLevel",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint64",
-            "name": "challengeGracePeriodBlocks",
-            "type": "uint64"
-          },
-          {
-            "components": [
-              {
-                "internalType": "uint64",
-                "name": "threshold",
-                "type": "uint64"
-              },
-              {
-                "internalType": "uint64",
-                "name": "max",
-                "type": "uint64"
-              },
-              {
-                "internalType": "uint64",
-                "name": "replenishRateInBasis",
-                "type": "uint64"
-              }
-            ],
-            "internalType": "struct BufferConfig",
-            "name": "bufferConfig",
-            "type": "tuple"
-          },
-          {
-            "internalType": "uint256",
-            "name": "dataCostEstimate",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct Config",
-        "name": "config",
-        "type": "tuple"
-      },
-      {
-        "components": [
-          {
-            "internalType": "contract IBridge",
-            "name": "bridge",
-            "type": "address"
-          },
-          {
-            "internalType": "contract ISequencerInbox",
-            "name": "sequencerInbox",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IInboxBase",
-            "name": "inbox",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IOutbox",
-            "name": "outbox",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IRollupEventInbox",
-            "name": "rollupEventInbox",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IEdgeChallengeManager",
-            "name": "challengeManager",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "rollupAdminLogic",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IRollupUser",
-            "name": "rollupUserLogic",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "validatorWalletCreator",
-            "type": "address"
-          }
-        ],
-        "internalType": "struct ContractDependencies",
-        "name": "connectedContracts",
-        "type": "tuple"
+        "internalType": "address",
+        "name": "_stakeToken",
+        "type": "address"
       }
     ],
     "name": "initialize",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1637,6 +1287,313 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_withdrawalAddress",
+        "type": "address"
+      }
+    ],
+    "name": "newStake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "prevPrevAssertionHash",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "sequencerBatchAcc",
+                "type": "bytes32"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32",
+                    "name": "wasmModuleRoot",
+                    "type": "bytes32"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "requiredStake",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "challengeManager",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "confirmPeriodBlocks",
+                    "type": "uint64"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "nextInboxPosition",
+                    "type": "uint64"
+                  }
+                ],
+                "internalType": "struct ConfigData",
+                "name": "configData",
+                "type": "tuple"
+              }
+            ],
+            "internalType": "struct BeforeStateData",
+            "name": "beforeStateData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "beforeState",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "afterState",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct AssertionInputs",
+        "name": "assertion",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "expectedAssertionHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "_withdrawalAddress",
+        "type": "address"
+      }
+    ],
+    "name": "newStakeOnNewAssertion",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "prevPrevAssertionHash",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "sequencerBatchAcc",
+                "type": "bytes32"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32",
+                    "name": "wasmModuleRoot",
+                    "type": "bytes32"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "requiredStake",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "challengeManager",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "confirmPeriodBlocks",
+                    "type": "uint64"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "nextInboxPosition",
+                    "type": "uint64"
+                  }
+                ],
+                "internalType": "struct ConfigData",
+                "name": "configData",
+                "type": "tuple"
+              }
+            ],
+            "internalType": "struct BeforeStateData",
+            "name": "beforeStateData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "beforeState",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "afterState",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct AssertionInputs",
+        "name": "assertion",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "expectedAssertionHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "newStakeOnNewAssertion",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "outbox",
     "outputs": [
@@ -1651,9 +1608,15 @@
   },
   {
     "inputs": [],
-    "name": "pause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1685,19 +1648,46 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_outbox",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "target",
+        "type": "uint256"
       }
     ],
-    "name": "removeOldOutbox",
+    "name": "reduceDeposit",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "resume",
+    "name": "removeWhitelistAfterFork",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "removeWhitelistAfterValidatorAfk",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "returnOldDeposit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "stakerAddress",
+        "type": "address"
+      }
+    ],
+    "name": "returnOldDepositFor",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1744,191 +1734,136 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_anyTrustFastConfirmer",
-        "type": "address"
-      }
-    ],
-    "name": "setAnyTrustFastConfirmer",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_challengeManager",
-        "type": "address"
-      }
-    ],
-    "name": "setChallengeManager",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "newConfirmPeriod",
-        "type": "uint64"
-      }
-    ],
-    "name": "setConfirmPeriodBlocks",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_inbox",
-        "type": "address"
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "prevPrevAssertionHash",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "sequencerBatchAcc",
+                "type": "bytes32"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32",
+                    "name": "wasmModuleRoot",
+                    "type": "bytes32"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "requiredStake",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "challengeManager",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "confirmPeriodBlocks",
+                    "type": "uint64"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "nextInboxPosition",
+                    "type": "uint64"
+                  }
+                ],
+                "internalType": "struct ConfigData",
+                "name": "configData",
+                "type": "tuple"
+              }
+            ],
+            "internalType": "struct BeforeStateData",
+            "name": "beforeStateData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "beforeState",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "components": [
+                  {
+                    "internalType": "bytes32[2]",
+                    "name": "bytes32Vals",
+                    "type": "bytes32[2]"
+                  },
+                  {
+                    "internalType": "uint64[2]",
+                    "name": "u64Vals",
+                    "type": "uint64[2]"
+                  }
+                ],
+                "internalType": "struct GlobalState",
+                "name": "globalState",
+                "type": "tuple"
+              },
+              {
+                "internalType": "enum MachineStatus",
+                "name": "machineStatus",
+                "type": "uint8"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "endHistoryRoot",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct AssertionState",
+            "name": "afterState",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct AssertionInputs",
+        "name": "assertion",
+        "type": "tuple"
       },
-      {
-        "internalType": "bool",
-        "name": "_enabled",
-        "type": "bool"
-      }
-    ],
-    "name": "setDelayedInbox",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "contract IInboxBase",
-        "name": "newInbox",
-        "type": "address"
-      }
-    ],
-    "name": "setInbox",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newLoserStakerEscrow",
-        "type": "address"
-      }
-    ],
-    "name": "setLoserStakeEscrow",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newPeriod",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMinimumAssertionPeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "contract IOutbox",
-        "name": "_outbox",
-        "type": "address"
-      }
-    ],
-    "name": "setOutbox",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "setOwner",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_sequencerInbox",
-        "type": "address"
-      }
-    ],
-    "name": "setSequencerInbox",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address[]",
-        "name": "_validator",
-        "type": "address[]"
-      },
-      {
-        "internalType": "bool[]",
-        "name": "_val",
-        "type": "bool[]"
-      }
-    ],
-    "name": "setValidator",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "newAfkBlocks",
-        "type": "uint64"
-      }
-    ],
-    "name": "setValidatorAfkBlocks",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bool",
-        "name": "_validatorWhitelistDisabled",
-        "type": "bool"
-      }
-    ],
-    "name": "setValidatorWhitelistDisabled",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
       {
         "internalType": "bytes32",
-        "name": "newWasmModuleRoot",
+        "name": "expectedAssertionHash",
         "type": "bytes32"
       }
     ],
-    "name": "setWasmModuleRoot",
+    "name": "stakeOnNewAssertion",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1970,68 +1905,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "upgradeSecondaryTo",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      }
-    ],
-    "name": "upgradeSecondaryToAndCall",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "upgradeTo",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      }
-    ],
-    "name": "upgradeToAndCall",
-    "outputs": [],
-    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -2189,6 +2062,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "withdrawStakerFunds",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -2226,4 +2112,4 @@
     "stateMutability": "view",
     "type": "function"
   }
-]
+] as const satisfies Abi;
