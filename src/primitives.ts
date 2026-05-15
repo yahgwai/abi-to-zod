@@ -19,6 +19,7 @@ type RootOp =
 type ChainOp =
   | { readonly op: 'regex'; readonly pattern: RegExp; readonly message?: string }
   | { readonly op: 'transformBigInt' }
+  | { readonly op: 'transformBigIntToNumber' }
   | { readonly op: 'transformHex' }
   | {
       readonly op: 'refineBigIntBound';
@@ -48,6 +49,8 @@ function applyChainZod(s: z.ZodType, op: ChainOp): z.ZodType {
       return (s as z.ZodString).regex(op.pattern, op.message);
     case 'transformBigInt':
       return s.transform((v: unknown) => BigInt(v as string));
+    case 'transformBigIntToNumber':
+      return s.transform((v: unknown) => Number(v as bigint));
     case 'transformHex':
       return s.transform((v: unknown): Hex => v as Hex);
     case 'refineBigIntBound': {
@@ -87,6 +90,8 @@ function chainSource(s: string, op: ChainOp): string {
       return `${s}.regex(${op.pattern.toString()})`;
     case 'transformBigInt':
       return `${s}.transform((v) => BigInt(v))`;
+    case 'transformBigIntToNumber':
+      return `${s}.transform((b) => Number(b))`;
     case 'transformHex':
       return `${s}.transform((v) => v as \`0x\${string}\`)`;
     case 'refineBigIntBound': {
@@ -185,6 +190,13 @@ function dispatchPrimitive<T>(base: string, h: PrimitiveHandlers<T>): T {
   throw new Error(`Unknown Solidity primitive type: ${base}`);
 }
 
+// abitype maps int<=48 / uint<=48 to `number` (Register.intType) and wider
+// widths to `bigint` (Register.bigIntType). We keep the bound check on
+// bigint to avoid any precision concerns, then narrow to `number` for the
+// small widths. Matching abitype's default register is a hard constraint —
+// it's what `viem.encodeFunctionData` types against.
+const NUMBER_WIDTH_MAX = 48;
+
 const SPEC_HANDLERS: PrimitiveHandlers<Spec> = {
   uint: (bits) => [
     { op: 'string' },
@@ -195,6 +207,7 @@ const SPEC_HANDLERS: PrimitiveHandlers<Spec> = {
       max: uintBound(bits),
       message: `Value exceeds uint${bits} max`,
     },
+    ...(bits <= NUMBER_WIDTH_MAX ? [{ op: 'transformBigIntToNumber' } as const] : []),
   ],
   int: (bits) => [
     { op: 'string' },
@@ -206,6 +219,7 @@ const SPEC_HANDLERS: PrimitiveHandlers<Spec> = {
       max: intMaxBound(bits),
       message: `Value out of int${bits} range`,
     },
+    ...(bits <= NUMBER_WIDTH_MAX ? [{ op: 'transformBigIntToNumber' } as const] : []),
   ],
   bytes: () => [
     { op: 'string' },
