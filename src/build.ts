@@ -1,7 +1,14 @@
 import { z } from 'zod';
+import type {
+  AbiParameter as AbitypeAbiParameter,
+  AbiParameterToPrimitiveType,
+} from 'abitype';
 import { parseType } from './type-parser.js';
 import { primitiveSchema, primitiveConstName } from './primitives.js';
 
+// Loose local shape kept for internal recursion and the renderer helpers,
+// which both operate on runtime-derived data (JSON-loaded ABIs). The public
+// entry point below narrows to abitype's stricter union for type inference.
 export type AbiParameter = {
   readonly type: string;
   readonly name?: string;
@@ -15,7 +22,16 @@ export class BuildSchemaError extends Error {
   }
 }
 
-export function buildSchema(param: AbiParameter, path: readonly string[] = []): z.ZodType {
+export function buildSchema<const P extends AbitypeAbiParameter>(
+  param: P,
+  path?: readonly string[],
+): z.ZodType<AbiParameterToPrimitiveType<P>> {
+  return doBuild(param as unknown as AbiParameter, path) as z.ZodType<
+    AbiParameterToPrimitiveType<P>
+  >;
+}
+
+function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
   try {
     const { base, suffixes } = parseType(param.type);
 
@@ -25,7 +41,7 @@ export function buildSchema(param: AbiParameter, path: readonly string[] = []): 
         throw new Error(`tuple type missing 'components'`);
       }
       const componentSchemas = param.components.map((c, i) =>
-        buildSchema(c, [...path, `components[${i}]`]),
+        doBuild(c, [...path, `components[${i}]`]),
       );
       schema = z.tuple(componentSchemas as [z.ZodType, ...z.ZodType[]]);
     } else {
