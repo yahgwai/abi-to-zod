@@ -5,3 +5,4 @@ export {
   type SchemaTable,
 } from './schemas.js';
 export { buildParamSchema, BuildSchemaError } from './build.js';
+export { renderSchemas } from './render.js';
