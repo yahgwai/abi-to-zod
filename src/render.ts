@@ -108,12 +108,6 @@ export function renderSchemas(abi: Abi): string {
   return out.join('\n');
 }
 
-function commentFor(param: RawAbiParameter): string {
-  const sig = canonicalType(param);
-  const name = param.name ?? '';
-  return name ? `/* ${name}: ${sig} */ ` : `/* ${sig} */ `;
-}
-
 export function renderParamSchema(
   param: RawAbiParameter,
   resolver: PrimitiveResolver,
@@ -137,6 +131,12 @@ export function renderParamSchema(
     for (const suffix of suffixes) {
       expr = suffix === null ? `z.array(${expr})` : `z.array(${expr}).length(${suffix})`;
     }
+    if (param.name) {
+      const isContainer = base === 'tuple' || suffixes.length > 0;
+      const ct = canonicalType(param);
+      const label = isContainer ? ct : `${param.name}: ${ct}`;
+      expr = `${expr}.describe(${JSON.stringify(label)})`;
+    }
     return expr;
   } catch (err) {
     if (err instanceof BuildSchemaError) throw err;
@@ -159,7 +159,7 @@ export function renderTupleSchema(
   const childIndent = indent + '  ';
   const items = params.map((p, i) => {
     const expr = renderParamSchema(p, resolver, childIndent, [...path, `components[${i}]`]);
-    return `${childIndent}${commentFor(p)}${expr},`;
+    return `${childIndent}${expr},`;
   });
   return `z.tuple([\n${items.join('\n')}\n${indent}])`;
 }

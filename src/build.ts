@@ -71,6 +71,12 @@ function doBuild(param: RawAbiParameter, path: readonly string[] = []): z.ZodTyp
       schema = suffix === null ? z.array(schema) : z.array(schema).length(suffix);
     }
 
+    if (param.name) {
+      const isContainer = base === 'tuple' || suffixes.length > 0;
+      const ct = canonicalType(param);
+      schema = schema.describe(isContainer ? ct : `${param.name}: ${ct}`);
+    }
+
     return schema;
   } catch (err) {
     if (err instanceof BuildSchemaError) throw err;
