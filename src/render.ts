@@ -132,7 +132,10 @@ export function renderParamSchema(
       expr = suffix === null ? `z.array(${expr})` : `z.array(${expr}).length(${suffix})`;
     }
     if (param.name) {
-      expr = `${expr}.describe(${JSON.stringify(`${param.name}: ${canonicalType(param)}`)})`;
+      const isContainer = base === 'tuple' || suffixes.length > 0;
+      const ct = canonicalType(param);
+      const label = isContainer ? ct : `${param.name}: ${ct}`;
+      expr = `${expr}.describe(${JSON.stringify(label)})`;
     }
     return expr;
   } catch (err) {

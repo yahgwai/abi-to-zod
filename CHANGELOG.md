@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Every named parameter's Zod schema now carries a `.describe('<name>: <canonicalType>')` annotation, available at runtime via `schema.description`. Applies to function inputs (tuple items), named struct components (object values and the surrounding object), and named arrays. Unnamed parameters are left without a description.
+- Every named parameter's Zod schema now carries a `.describe(...)` annotation, available at runtime via `schema.description`. Leaf primitives describe `'<name>: <canonicalType>'`; containers (structs/arrays) describe just `'<canonicalType>'` since their inner structure already exposes field names. Unnamed parameters are left without a description.
 - Generated source no longer emits `/* name: type */` comments inside tuples — the same information is on `.describe()` instead.
 
 ## [0.1.0] - 2026-05-18
