@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { renderSchemas } from './render.js';
+import { renderSchemas } from '../src/render.js';
 import { abi as erc20Abi } from '../test/fixtures/erc/ERC20.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');

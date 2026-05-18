@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { primitiveSchema, primitiveSource, primitiveSpec } from './primitives.js';
+import { primitiveSchema, primitiveSource, primitiveSpec } from '../src/primitives.js';
 
 // End-to-end runtime/source equivalence per primitive variant lives in
 // primitives-source.test.ts. This file pins the two things that file

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { primitiveSchema, primitiveSource } from './primitives.js';
+import { primitiveSchema, primitiveSource } from '../src/primitives.js';
 
 // Strip TS-only type assertions so the source can be evaluated as plain JS.
 function evalSource(source: string): z.ZodType {

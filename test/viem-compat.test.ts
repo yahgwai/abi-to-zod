@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeFunctionData } from 'viem';
 import type { z } from 'zod';
 import type { Abi, AbiParametersToPrimitiveTypes } from 'abitype';
-import { buildSchemas, canonicalSignature, filterFunctions, type Sig } from './schemas.js';
+import { buildSchemas, canonicalSignature, filterFunctions, type Sig } from '../src/schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
 import {
@@ -31,7 +31,7 @@ import {
   uniswapV2RouterAbi,
   uniswapV3SwapRouterAbi,
   seaportAbi,
-} from '../test/fixtures/index.js';
+} from './fixtures/index.js';
 
 // The TS-level checks below depend on `as const satisfies Abi` preserving
 // literal types through buildSchemas. If types drift, encodeFunctionData's

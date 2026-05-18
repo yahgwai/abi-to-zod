@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { buildParamSchema, type RawAbiParameter } from './build.js';
+import { buildParamSchema, type RawAbiParameter } from '../src/build.js';
 import {
   collectPrimitives,
   renderParamSchema,
   renderSchemas,
   renderTupleSchema,
-} from './render.js';
-import { buildSchemas, canonicalSignature, filterFunctions, type Abi } from './schemas.js';
-import { primitiveConstName, primitiveSource } from './primitives.js';
+} from '../src/render.js';
+import { buildSchemas, canonicalSignature, filterFunctions, type Abi } from '../src/schemas.js';
+import { primitiveConstName, primitiveSource } from '../src/primitives.js';
 import { placeholderFor } from './test-helpers.js';
-import { FIXTURES, arbInfoAbi, erc20Abi } from '../test/fixtures/index.js';
+import { FIXTURES, arbInfoAbi, erc20Abi } from './fixtures/index.js';
 
 // Build a "consts" object so eval'd source can resolve UINT256/etc. as locals.
 function evalRenderedTuple(params: readonly RawAbiParameter[]): z.ZodType {

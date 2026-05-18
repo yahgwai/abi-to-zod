@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildParamSchema, BuildSchemaError } from './build.js';
+import { buildParamSchema, BuildSchemaError } from '../src/build.js';
 
 describe('buildParamSchema: primitives', () => {
   it('builds a schema for a uint256', () => {

@@ -4,10 +4,10 @@ import {
   canonicalSignature,
   filterFunctions,
   type Abi,
-} from './schemas.js';
+} from '../src/schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
-import { FIXTURES } from '../test/fixtures/index.js';
+import { FIXTURES } from './fixtures/index.js';
 
 function runFixture(relPath: string, abi: Abi) {
   const functions = filterFunctions(abi);

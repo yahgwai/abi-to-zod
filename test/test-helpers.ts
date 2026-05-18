@@ -1,5 +1,5 @@
-import { type RawAbiParameter } from './build.js';
-import { parseType } from './type-parser.js';
+import { type RawAbiParameter } from '../src/build.js';
+import { parseType } from '../src/type-parser.js';
 
 export function placeholderPrimitive(base: string): unknown {
   if (base === 'uint' || base === 'int' || /^u?int\d+$/.test(base)) return '0';
