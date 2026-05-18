@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { abiToZod, canonicalSignature, filterFunctions, type Abi } from './abi.js';
-import { abiFunctionToZod } from './function.js';
+import { buildSchemas, canonicalSignature, filterFunctions, type Abi } from './abi.js';
+import { buildFunctionInputsSchema } from './function.js';
 import { parseType } from './type-parser.js';
 import { type AbiParameter } from './build.js';
 
@@ -99,15 +99,15 @@ function runFixture(relPath: string, abi: Abi) {
     it(`builds a schema for every function (${functions.length} fns)`, () => {
       for (const f of functions) {
         expect(
-          () => abiFunctionToZod(f),
-          `abiFunctionToZod failed for ${canonicalSignature(f)}`,
+          () => buildFunctionInputsSchema(f),
+          `buildFunctionInputsSchema failed for ${canonicalSignature(f)}`,
         ).not.toThrow();
       }
     });
 
     it('parses placeholder args for every function', () => {
       for (const f of functions) {
-        const schema = abiFunctionToZod(f);
+        const schema = buildFunctionInputsSchema(f);
         const args = f.inputs.map(placeholderFor);
         const result = schema.safeParse(args);
         if (!result.success) {
@@ -119,7 +119,7 @@ function runFixture(relPath: string, abi: Abi) {
     });
 
     it('resolves every function via barrel signature key', () => {
-      const barrel = abiToZod(abi) as Record<string, unknown>;
+      const barrel = buildSchemas(abi) as Record<string, unknown>;
       for (const f of functions) {
         const sig = canonicalSignature(f);
         expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
@@ -129,7 +129,7 @@ function runFixture(relPath: string, abi: Abi) {
     it('rejects wrong-arity inputs', () => {
       for (const f of functions) {
         if (f.inputs.length === 0) continue;
-        const schema = abiFunctionToZod(f);
+        const schema = buildFunctionInputsSchema(f);
         const short = f.inputs.slice(1).map(placeholderFor);
         const result = schema.safeParse(short);
         if (result.success) {

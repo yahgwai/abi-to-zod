@@ -22,7 +22,7 @@ export class BuildSchemaError extends Error {
   }
 }
 
-export function buildSchema<const P extends AbitypeAbiParameter>(
+export function buildParamSchema<const P extends AbitypeAbiParameter>(
   param: P,
   path?: readonly string[],
 ): z.ZodType<AbiParameterToPrimitiveType<P>> {
@@ -34,9 +34,9 @@ export function buildSchema<const P extends AbitypeAbiParameter>(
 // Mirrors abitype's AbiComponentsToPrimitiveType: when every struct
 // component carries a non-empty `name`, the inferred type is an object
 // keyed by those names; otherwise it's a positional tuple. We branch the
-// runtime here so it actually delivers what `buildSchema`'s typed return
+// runtime here so it actually delivers what `buildParamSchema`'s typed return
 // claims. Top-level function inputs stay positional (handled in
-// abiFunctionToZod) — only struct components opt into the object shape.
+// buildFunctionInputsSchema) — only struct components opt into the object shape.
 //
 // Returning the typed pairs (rather than a boolean) carries the
 // "name is a non-empty string" narrowing through to the call sites,
@@ -117,7 +117,7 @@ function commentFor(param: AbiParameter): string {
   return name ? `/* ${name}: ${sig} */ ` : `/* ${sig} */ `;
 }
 
-export function renderSchemaSource(
+export function renderParamSchema(
   param: AbiParameter,
   resolver: PrimitiveResolver,
   indent: string = '',
@@ -161,7 +161,7 @@ export function renderTupleSource(
   if (params.length === 0) return 'z.tuple([])';
   const childIndent = indent + '  ';
   const items = params.map((p, i) => {
-    const expr = renderSchemaSource(p, resolver, childIndent, [...path, `components[${i}]`]);
+    const expr = renderParamSchema(p, resolver, childIndent, [...path, `components[${i}]`]);
     return `${childIndent}${commentFor(p)}${expr},`;
   });
   return `z.tuple([\n${items.join('\n')}\n${indent}])`;
@@ -175,7 +175,7 @@ export function renderObjectSource(
 ): string {
   const childIndent = indent + '  ';
   const items = named.map(([name, param], i) => {
-    const expr = renderSchemaSource(param, resolver, childIndent, [...path, `components[${i}]`]);
+    const expr = renderParamSchema(param, resolver, childIndent, [...path, `components[${i}]`]);
     return `${childIndent}${name}: ${expr},`;
   });
   return `z.strictObject({\n${items.join('\n')}\n${indent}})`;

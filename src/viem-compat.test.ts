@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeFunctionData } from 'viem';
 import type { z } from 'zod';
 import type { Abi, AbiParametersToPrimitiveTypes } from 'abitype';
-import { abiToZod, canonicalSignature, filterFunctions, type Sig } from './abi.js';
+import { buildSchemas, canonicalSignature, filterFunctions, type Sig } from './abi.js';
 import { type AbiParameter } from './build.js';
 import { parseType } from './type-parser.js';
 
@@ -32,7 +32,7 @@ import { abi as uniswapV3SwapRouterAbi } from '../test/fixtures/mainnet/UniswapV
 import { abi as seaportAbi } from '../test/fixtures/mainnet/Seaport.js';
 
 // The TS-level checks below depend on `as const satisfies Abi` keeping the
-// literal types intact through abiToZod. If our types drift, the
+// literal types intact through buildSchemas. If our types drift, the
 // encodeFunctionData call rejects the `args` assignment — that compile
 // failure *is* the assertion. Don't paper over it with `as any` or helper
 // casts; debug the type signatures instead.
@@ -65,7 +65,7 @@ const ADDRESS = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' as const;
 
 describe('viem-compat: TS-level (explicit named calls)', () => {
   it('ERC20.transfer', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'transfer',
@@ -74,7 +74,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ERC20.approve', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'approve',
@@ -83,7 +83,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ERC20.transferFrom', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'transferFrom',
@@ -92,7 +92,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ERC20.balanceOf', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'balanceOf',
@@ -101,7 +101,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ERC20.allowance', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'allowance',
@@ -110,7 +110,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ERC20.totalSupply (zero args)', () => {
-    const schemas = abiToZod(erc20Abi);
+    const schemas = buildSchemas(erc20Abi);
     encodeFunctionData({
       abi: erc20Abi,
       functionName: 'totalSupply',
@@ -119,7 +119,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ArbInfo.getBalance', () => {
-    const schemas = abiToZod(arbInfoAbi);
+    const schemas = buildSchemas(arbInfoAbi);
     encodeFunctionData({
       abi: arbInfoAbi,
       functionName: 'getBalance',
@@ -128,7 +128,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('ArbInfo.getCode', () => {
-    const schemas = abiToZod(arbInfoAbi);
+    const schemas = buildSchemas(arbInfoAbi);
     encodeFunctionData({
       abi: arbInfoAbi,
       functionName: 'getCode',
@@ -137,7 +137,7 @@ describe('viem-compat: TS-level (explicit named calls)', () => {
   });
 
   it('named-tuple input round-trips as an object', () => {
-    const schemas = abiToZod(structAbi);
+    const schemas = buildSchemas(structAbi);
     encodeFunctionData({
       abi: structAbi,
       functionName: 'placeOrder',
@@ -213,7 +213,7 @@ describe('viem-compat: runtime loop over every fixture', () => {
   for (const [rel, abi] of Object.entries(FIXTURES)) {
     it(`${rel}: every function survives encodeFunctionData`, () => {
       const fns = filterFunctions(abi);
-      const barrel = abiToZod(abi) as Record<string, z.ZodType<unknown> | undefined>;
+      const barrel = buildSchemas(abi) as Record<string, z.ZodType<unknown> | undefined>;
       for (const f of fns) {
         const sig = canonicalSignature(f);
         const schema = barrel[sig];
@@ -267,99 +267,99 @@ type Check<A extends Abi, S> = {
 // inferred type is locked, then assert Check shrinks to all `true`s. The
 // `{ [K]: true }` constraint is what trips when Check produces any of the
 // `'MISMATCH'` / `'NOT_ZOD'` / `'MISSING'` markers.
-const erc20Schemas = abiToZod(erc20Abi);
+const erc20Schemas = buildSchemas(erc20Abi);
 const _erc20: { [K in keyof Check<typeof erc20Abi, typeof erc20Schemas>]: true } =
   {} as Check<typeof erc20Abi, typeof erc20Schemas>;
 
-const erc721Schemas = abiToZod(erc721Abi);
+const erc721Schemas = buildSchemas(erc721Abi);
 const _erc721: { [K in keyof Check<typeof erc721Abi, typeof erc721Schemas>]: true } =
   {} as Check<typeof erc721Abi, typeof erc721Schemas>;
 
-const erc1155Schemas = abiToZod(erc1155Abi);
+const erc1155Schemas = buildSchemas(erc1155Abi);
 const _erc1155: { [K in keyof Check<typeof erc1155Abi, typeof erc1155Schemas>]: true } =
   {} as Check<typeof erc1155Abi, typeof erc1155Schemas>;
 
-const arbSysSchemas = abiToZod(arbSysAbi);
+const arbSysSchemas = buildSchemas(arbSysAbi);
 const _arbSys: { [K in keyof Check<typeof arbSysAbi, typeof arbSysSchemas>]: true } =
   {} as Check<typeof arbSysAbi, typeof arbSysSchemas>;
 
-const arbGasInfoSchemas = abiToZod(arbGasInfoAbi);
+const arbGasInfoSchemas = buildSchemas(arbGasInfoAbi);
 const _arbGasInfo: { [K in keyof Check<typeof arbGasInfoAbi, typeof arbGasInfoSchemas>]: true } =
   {} as Check<typeof arbGasInfoAbi, typeof arbGasInfoSchemas>;
 
-const arbOwnerSchemas = abiToZod(arbOwnerAbi);
+const arbOwnerSchemas = buildSchemas(arbOwnerAbi);
 const _arbOwner: { [K in keyof Check<typeof arbOwnerAbi, typeof arbOwnerSchemas>]: true } =
   {} as Check<typeof arbOwnerAbi, typeof arbOwnerSchemas>;
 
-const arbOwnerPublicSchemas = abiToZod(arbOwnerPublicAbi);
+const arbOwnerPublicSchemas = buildSchemas(arbOwnerPublicAbi);
 const _arbOwnerPublic: { [K in keyof Check<typeof arbOwnerPublicAbi, typeof arbOwnerPublicSchemas>]: true } =
   {} as Check<typeof arbOwnerPublicAbi, typeof arbOwnerPublicSchemas>;
 
-const arbRetryableTxSchemas = abiToZod(arbRetryableTxAbi);
+const arbRetryableTxSchemas = buildSchemas(arbRetryableTxAbi);
 const _arbRetryableTx: { [K in keyof Check<typeof arbRetryableTxAbi, typeof arbRetryableTxSchemas>]: true } =
   {} as Check<typeof arbRetryableTxAbi, typeof arbRetryableTxSchemas>;
 
-const arbAddressTableSchemas = abiToZod(arbAddressTableAbi);
+const arbAddressTableSchemas = buildSchemas(arbAddressTableAbi);
 const _arbAddressTable: { [K in keyof Check<typeof arbAddressTableAbi, typeof arbAddressTableSchemas>]: true } =
   {} as Check<typeof arbAddressTableAbi, typeof arbAddressTableSchemas>;
 
-const arbAggregatorSchemas = abiToZod(arbAggregatorAbi);
+const arbAggregatorSchemas = buildSchemas(arbAggregatorAbi);
 const _arbAggregator: { [K in keyof Check<typeof arbAggregatorAbi, typeof arbAggregatorSchemas>]: true } =
   {} as Check<typeof arbAggregatorAbi, typeof arbAggregatorSchemas>;
 
-const arbWasmSchemas = abiToZod(arbWasmAbi);
+const arbWasmSchemas = buildSchemas(arbWasmAbi);
 const _arbWasm: { [K in keyof Check<typeof arbWasmAbi, typeof arbWasmSchemas>]: true } =
   {} as Check<typeof arbWasmAbi, typeof arbWasmSchemas>;
 
-const arbStatisticsSchemas = abiToZod(arbStatisticsAbi);
+const arbStatisticsSchemas = buildSchemas(arbStatisticsAbi);
 const _arbStatistics: { [K in keyof Check<typeof arbStatisticsAbi, typeof arbStatisticsSchemas>]: true } =
   {} as Check<typeof arbStatisticsAbi, typeof arbStatisticsSchemas>;
 
-const arbInfoSchemas = abiToZod(arbInfoAbi);
+const arbInfoSchemas = buildSchemas(arbInfoAbi);
 const _arbInfo: { [K in keyof Check<typeof arbInfoAbi, typeof arbInfoSchemas>]: true } =
   {} as Check<typeof arbInfoAbi, typeof arbInfoSchemas>;
 
-const inboxSchemas = abiToZod(inboxAbi);
+const inboxSchemas = buildSchemas(inboxAbi);
 const _inbox: { [K in keyof Check<typeof inboxAbi, typeof inboxSchemas>]: true } =
   {} as Check<typeof inboxAbi, typeof inboxSchemas>;
 
-const outboxSchemas = abiToZod(outboxAbi);
+const outboxSchemas = buildSchemas(outboxAbi);
 const _outbox: { [K in keyof Check<typeof outboxAbi, typeof outboxSchemas>]: true } =
   {} as Check<typeof outboxAbi, typeof outboxSchemas>;
 
-const bridgeSchemas = abiToZod(bridgeAbi);
+const bridgeSchemas = buildSchemas(bridgeAbi);
 const _bridge: { [K in keyof Check<typeof bridgeAbi, typeof bridgeSchemas>]: true } =
   {} as Check<typeof bridgeAbi, typeof bridgeSchemas>;
 
-const nodeInterfaceSchemas = abiToZod(nodeInterfaceAbi);
+const nodeInterfaceSchemas = buildSchemas(nodeInterfaceAbi);
 const _nodeInterface: { [K in keyof Check<typeof nodeInterfaceAbi, typeof nodeInterfaceSchemas>]: true } =
   {} as Check<typeof nodeInterfaceAbi, typeof nodeInterfaceSchemas>;
 
-const sequencerInboxSchemas = abiToZod(sequencerInboxAbi);
+const sequencerInboxSchemas = buildSchemas(sequencerInboxAbi);
 const _sequencerInbox: { [K in keyof Check<typeof sequencerInboxAbi, typeof sequencerInboxSchemas>]: true } =
   {} as Check<typeof sequencerInboxAbi, typeof sequencerInboxSchemas>;
 
-const rollupAdminLogicSchemas = abiToZod(rollupAdminLogicAbi);
+const rollupAdminLogicSchemas = buildSchemas(rollupAdminLogicAbi);
 const _rollupAdminLogic: { [K in keyof Check<typeof rollupAdminLogicAbi, typeof rollupAdminLogicSchemas>]: true } =
   {} as Check<typeof rollupAdminLogicAbi, typeof rollupAdminLogicSchemas>;
 
-const rollupUserLogicSchemas = abiToZod(rollupUserLogicAbi);
+const rollupUserLogicSchemas = buildSchemas(rollupUserLogicAbi);
 const _rollupUserLogic: { [K in keyof Check<typeof rollupUserLogicAbi, typeof rollupUserLogicSchemas>]: true } =
   {} as Check<typeof rollupUserLogicAbi, typeof rollupUserLogicSchemas>;
 
-const edgeChallengeManagerSchemas = abiToZod(edgeChallengeManagerAbi);
+const edgeChallengeManagerSchemas = buildSchemas(edgeChallengeManagerAbi);
 const _edgeChallengeManager: { [K in keyof Check<typeof edgeChallengeManagerAbi, typeof edgeChallengeManagerSchemas>]: true } =
   {} as Check<typeof edgeChallengeManagerAbi, typeof edgeChallengeManagerSchemas>;
 
-const uniswapV2RouterSchemas = abiToZod(uniswapV2RouterAbi);
+const uniswapV2RouterSchemas = buildSchemas(uniswapV2RouterAbi);
 const _uniswapV2Router: { [K in keyof Check<typeof uniswapV2RouterAbi, typeof uniswapV2RouterSchemas>]: true } =
   {} as Check<typeof uniswapV2RouterAbi, typeof uniswapV2RouterSchemas>;
 
-const uniswapV3SwapRouterSchemas = abiToZod(uniswapV3SwapRouterAbi);
+const uniswapV3SwapRouterSchemas = buildSchemas(uniswapV3SwapRouterAbi);
 const _uniswapV3SwapRouter: { [K in keyof Check<typeof uniswapV3SwapRouterAbi, typeof uniswapV3SwapRouterSchemas>]: true } =
   {} as Check<typeof uniswapV3SwapRouterAbi, typeof uniswapV3SwapRouterSchemas>;
 
-const seaportSchemas = abiToZod(seaportAbi);
+const seaportSchemas = buildSchemas(seaportAbi);
 const _seaport: { [K in keyof Check<typeof seaportAbi, typeof seaportSchemas>]: true } =
   {} as Check<typeof seaportAbi, typeof seaportSchemas>;
 

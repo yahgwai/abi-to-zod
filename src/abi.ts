@@ -6,7 +6,7 @@ import type {
   AbiParametersToPrimitiveTypes,
 } from 'abitype';
 import { type AbiParameter as LooseAbiParameter, canonicalType } from './build.js';
-import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
+import { buildFunctionInputsSchema, type AbiFunctionEntry } from './function.js';
 
 export type { Abi };
 export { canonicalType };
@@ -84,7 +84,7 @@ type CanonicalTypeOf<P extends AbiParameter> =
     : never;
 
 // Canonical `name(inputTypes...)` signature for a function — must equal
-// canonicalSignature(f) at runtime for the same entry, otherwise barrel
+// canonicalSignature(f) at runtime for the same entry, otherwise table
 // lookups by signature key mismatch.
 export type Sig<F extends AbiFunction> =
   `${F['name']}(${ParamsToCanonicalString<F['inputs']>})`;
@@ -95,7 +95,7 @@ type SchemaFor<F extends AbiFunction> = z.ZodType<AbiParametersToPrimitiveTypes<
 
 // Unambiguous function name -> schema. Overloaded names map to `never` so
 // callers must reach for the signature key instead, mirroring runtime
-// (abiToZod only writes the bare-name slot when counts.get(name) === 1).
+// (buildSchemas only writes the bare-name slot when counts.get(name) === 1).
 type NameKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Equal<
     Extract<FunctionEntries<A>, { name: F['name'] }>,
@@ -112,7 +112,7 @@ type SignatureKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Sig<F>]: SchemaFor<F>;
 };
 
-export type Barrel<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
+export type SchemaTable<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
 
 export type FunctionPlanEntry = {
   readonly entry: AbiFunctionEntry;
@@ -120,7 +120,7 @@ export type FunctionPlanEntry = {
   readonly overloaded: boolean;
 };
 
-// Shared "what functions are in this ABI" pass. Both abiToZod and the
+// Shared "what functions are in this ABI" pass. Both buildSchemas and the
 // codegen consume this; keeping the overload-detection rule in one place
 // means the runtime table and the generated source can't disagree on
 // which names are unambiguous.
@@ -135,12 +135,12 @@ export function planFunctions(abi: Abi): FunctionPlanEntry[] {
   }));
 }
 
-export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
+export function buildSchemas<const A extends Abi>(abi: A): SchemaTable<A> {
   const out: Record<string, z.ZodType<unknown>> = {};
   for (const { entry, signature, overloaded } of planFunctions(abi)) {
-    const schema = abiFunctionToZod(entry) as z.ZodType<unknown>;
+    const schema = buildFunctionInputsSchema(entry) as z.ZodType<unknown>;
     out[signature] = schema;
     if (!overloaded) out[entry.name] = schema;
   }
-  return out as Barrel<A>;
+  return out as SchemaTable<A>;
 }

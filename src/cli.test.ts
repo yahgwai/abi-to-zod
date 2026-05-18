@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { generate } from './codegen.js';
+import { renderSchemas } from './codegen.js';
 import { abi as erc20Abi } from '../test/fixtures/erc/ERC20.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,9 +38,9 @@ function writeAbiJson(): string {
 }
 
 describe('cli', () => {
-  it('stdout matches programmatic generate when no output path given', () => {
+  it('stdout matches programmatic renderSchemas when no output path given', () => {
     const fixturePath = writeAbiJson();
-    const expected = generate(erc20Abi, basename(fixturePath));
+    const expected = renderSchemas(erc20Abi, basename(fixturePath));
 
     const res = spawnSync(process.execPath, [cliPath, fixturePath], { encoding: 'utf8' });
     expect(res.status).toBe(0);
@@ -50,7 +50,7 @@ describe('cli', () => {
 
   it('writes to output file when given', () => {
     const fixturePath = writeAbiJson();
-    const expected = generate(erc20Abi, basename(fixturePath));
+    const expected = renderSchemas(erc20Abi, basename(fixturePath));
 
     const out = join(makeTmpDir(), 'out.ts');
     const res = spawnSync(process.execPath, [cliPath, fixturePath, out], { encoding: 'utf8' });

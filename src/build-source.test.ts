@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import {
-  buildSchema,
-  renderSchemaSource,
+  buildParamSchema,
+  renderParamSchema,
   renderTupleSource,
   collectPrimitives,
   type AbiParameter,
@@ -47,7 +47,7 @@ function constNameToBase(name: string): string {
 // AbiParameter would conflate the two layers (the wrapper itself would
 // become an object whenever its components are all named).
 function asFunctionInputs(params: AbiParameter[]): z.ZodType {
-  const items = params.map((p) => buildSchema(p));
+  const items = params.map((p) => buildParamSchema(p));
   return z.tuple(items as [z.ZodType, ...z.ZodType[]]);
 }
 
@@ -60,7 +60,7 @@ function expectSameParse(params: AbiParameter[], inputs: unknown) {
   if (a.success) expect(b.success && b.data).toEqual(a.data);
 }
 
-describe('renderTupleSource: equivalence with buildSchema', () => {
+describe('renderTupleSource: equivalence with buildParamSchema', () => {
   it('flat tuple of primitives', () => {
     const params: AbiParameter[] = [
       { type: 'address', name: 'who' },
@@ -146,29 +146,29 @@ describe('renderTupleSource: equivalence with buildSchema', () => {
   });
 });
 
-describe('renderSchemaSource: shape', () => {
+describe('renderParamSchema: shape', () => {
   it('primitive resolves to const name', () => {
-    expect(renderSchemaSource({ type: 'uint256' }, primitiveConstName)).toBe('UINT256');
+    expect(renderParamSchema({ type: 'uint256' }, primitiveConstName)).toBe('UINT256');
   });
 
   it('uint alias normalizes to UINT256', () => {
-    expect(renderSchemaSource({ type: 'uint' }, primitiveConstName)).toBe('UINT256');
+    expect(renderParamSchema({ type: 'uint' }, primitiveConstName)).toBe('UINT256');
   });
 
   it('dynamic array wraps in z.array', () => {
-    expect(renderSchemaSource({ type: 'uint256[]' }, primitiveConstName)).toBe(
+    expect(renderParamSchema({ type: 'uint256[]' }, primitiveConstName)).toBe(
       'z.array(UINT256)',
     );
   });
 
   it('fixed array uses .length()', () => {
-    expect(renderSchemaSource({ type: 'uint256[3]' }, primitiveConstName)).toBe(
+    expect(renderParamSchema({ type: 'uint256[3]' }, primitiveConstName)).toBe(
       'z.array(UINT256).length(3)',
     );
   });
 
   it('nested array of fixed array', () => {
-    expect(renderSchemaSource({ type: 'uint256[3][]' }, primitiveConstName)).toBe(
+    expect(renderParamSchema({ type: 'uint256[3][]' }, primitiveConstName)).toBe(
       'z.array(z.array(UINT256).length(3))',
     );
   });

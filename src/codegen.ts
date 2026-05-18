@@ -34,7 +34,7 @@ function constNameToBase(name: string): string {
   throw new Error(`unknown const name ${name}`);
 }
 
-export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
+export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): string {
   const plan = planFunctions(abi);
 
   const allInputs: AbiParameter[] = [];
@@ -75,7 +75,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
     }
   }
 
-  out.push('// === Lookup barrel (mirrors abiToZod) ===');
+  out.push('// === Schema table (mirrors buildSchemas) ===');
   out.push('');
   out.push('export const schemas = {');
 

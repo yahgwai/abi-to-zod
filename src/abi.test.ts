@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Abi } from 'abitype';
-import { abiToZod, canonicalSignature } from './abi.js';
+import { buildSchemas, canonicalSignature } from './abi.js';
 
 const simpleAbi = [
   {
@@ -141,9 +141,9 @@ describe('canonicalSignature', () => {
   });
 });
 
-describe('abiToZod barrel', () => {
+describe('buildSchemas table', () => {
   it('exposes name keys for unambiguous functions', () => {
-    const barrel = abiToZod(simpleAbi);
+    const barrel = buildSchemas(simpleAbi);
     const transfer = barrel.transfer;
     expect(transfer).toBeDefined();
     expect(transfer!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
@@ -153,7 +153,7 @@ describe('abiToZod barrel', () => {
   });
 
   it('exposes signature keys for every function', () => {
-    const barrel = abiToZod(simpleAbi);
+    const barrel = buildSchemas(simpleAbi);
     const balanceOf = barrel['balanceOf(address)'];
     expect(balanceOf).toBeDefined();
     expect(balanceOf!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
@@ -162,16 +162,16 @@ describe('abiToZod barrel', () => {
   });
 
   it('returns undefined for unknown name or signature', () => {
-    // The typed Barrel rejects unknown keys at compile time. The runtime
+    // The typed SchemaTable rejects unknown keys at compile time. The runtime
     // test below is the safety net proving no stray props slipped in;
     // casting widens the read but the runtime shape is what we're asserting.
-    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
+    const barrel = buildSchemas(simpleAbi) as Record<string, unknown>;
     expect(barrel['unknown']).toBeUndefined();
     expect(barrel['transfer(uint256)']).toBeUndefined();
   });
 
   it('omits the name key when overloaded, but keeps both signature keys', () => {
-    const barrel = abiToZod(overloadedAbi);
+    const barrel = buildSchemas(overloadedAbi);
     expect((barrel as Record<string, unknown>)['foo']).toBeUndefined();
     expect(barrel['foo(uint256)']).toBeDefined();
     expect(barrel['foo(address)']).toBeDefined();
@@ -182,12 +182,12 @@ describe('abiToZod barrel', () => {
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
+    const barrel = buildSchemas(simpleAbi) as Record<string, unknown>;
     expect(barrel['Transfer']).toBeUndefined();
   });
 
   it('handles zero-input functions via signature', () => {
-    const barrel = abiToZod(overloadedAbi);
+    const barrel = buildSchemas(overloadedAbi);
     expect(barrel['bar()']).toBeDefined();
     expect(barrel.bar).toBeDefined();
     expect(barrel.bar!.parse([])).toEqual([]);
@@ -195,12 +195,12 @@ describe('abiToZod barrel', () => {
 
   it('throws on function entries with missing inputs', () => {
     const abi = [{ type: 'function', name: 'foo' }] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/inputs/);
+    expect(() => buildSchemas(abi)).toThrow(/inputs/);
   });
 
   it('throws on function entries with non-string name', () => {
     const abi = [{ type: 'function', inputs: [] }] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/name/);
+    expect(() => buildSchemas(abi)).toThrow(/name/);
   });
 
   it('failure surfaces immediately, not silently dropped', () => {
@@ -208,6 +208,6 @@ describe('abiToZod barrel', () => {
       { type: 'function', name: 'good', inputs: [] },
       { type: 'function', name: 'bad' },
     ] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/bad.*inputs/);
+    expect(() => buildSchemas(abi)).toThrow(/bad.*inputs/);
   });
 });

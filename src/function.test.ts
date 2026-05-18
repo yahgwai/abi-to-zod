@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { abiFunctionToZod } from './function.js';
+import { buildFunctionInputsSchema } from './function.js';
 
-describe('abiFunctionToZod', () => {
+describe('buildFunctionInputsSchema', () => {
   it('handles a no-arg function', () => {
-    const s = abiFunctionToZod({ type: 'function', name: 'totalSupply', inputs: [] });
+    const s = buildFunctionInputsSchema({ type: 'function', name: 'totalSupply', inputs: [] });
     expect(s.parse([])).toEqual([]);
   });
 
   it('handles a function with primitive inputs', () => {
-    const s = abiFunctionToZod({
+    const s = buildFunctionInputsSchema({
       type: 'function',
       name: 'transfer',
       inputs: [
@@ -21,7 +21,7 @@ describe('abiFunctionToZod', () => {
   });
 
   it('rejects wrong arity', () => {
-    const s = abiFunctionToZod({
+    const s = buildFunctionInputsSchema({
       type: 'function',
       name: 'transfer',
       inputs: [
@@ -36,7 +36,7 @@ describe('abiFunctionToZod', () => {
   });
 
   it('handles a function with a named-tuple input (object component)', () => {
-    const s = abiFunctionToZod({
+    const s = buildFunctionInputsSchema({
       type: 'function',
       name: 'executeOrder',
       inputs: [
@@ -59,7 +59,7 @@ describe('abiFunctionToZod', () => {
   });
 
   it('handles a function with an array input', () => {
-    const s = abiFunctionToZod({
+    const s = buildFunctionInputsSchema({
       type: 'function',
       name: 'batch',
       inputs: [{ name: 'amounts', type: 'uint256[]' }],
@@ -70,7 +70,7 @@ describe('abiFunctionToZod', () => {
 
   it('rejects non-function entries', () => {
     expect(() =>
-      abiFunctionToZod({
+      buildFunctionInputsSchema({
         // @ts-expect-error — deliberately passing wrong type
         type: 'event',
         name: 'Transfer',
@@ -78,7 +78,7 @@ describe('abiFunctionToZod', () => {
       }),
     ).toThrow(/function entry/);
     expect(() =>
-      abiFunctionToZod({
+      buildFunctionInputsSchema({
         // @ts-expect-error — deliberately passing wrong type
         type: 'constructor',
         inputs: [],

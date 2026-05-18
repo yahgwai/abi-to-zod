@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { generate } from '../src/codegen.js';
+import { renderSchemas } from '../src/codegen.js';
 import type { Abi } from '../src/abi.js';
 
 import { abi as erc20Abi } from '../test/fixtures/erc/ERC20.js';
@@ -65,7 +65,7 @@ let count = 0;
 for (const [rel, abi] of FIXTURES) {
   const outPath = join(outDir, rel);
   const sourceName = rel.split('/').pop() ?? rel;
-  const src = generate(abi, sourceName);
+  const src = renderSchemas(abi, sourceName);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, src);
   count++;
