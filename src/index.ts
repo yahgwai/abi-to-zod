@@ -7,5 +7,5 @@ export {
   type Abi,
   type FunctionPlanEntry,
   type SchemaTable,
-} from './build-schemas.js';
+} from './schemas.js';
 export { buildParamSchema, BuildSchemaError, type AbiParameter } from './build.js';

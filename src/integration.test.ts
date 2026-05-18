@@ -4,7 +4,7 @@ import {
   canonicalSignature,
   filterFunctions,
   type Abi,
-} from './build-schemas.js';
+} from './schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
 import { FIXTURES } from '../test/fixtures/index.js';

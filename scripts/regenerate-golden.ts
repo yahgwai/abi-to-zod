@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { renderSchemas } from '../src/render-schemas.js';
+import { renderSchemas } from '../src/render.js';
 
 import { FIXTURES } from '../test/fixtures/index.js';
 

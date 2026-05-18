@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Abi } from 'abitype';
-import { buildFunctionInputsSchema, buildSchemas, canonicalSignature } from './build-schemas.js';
+import { buildFunctionInputsSchema, buildSchemas, canonicalSignature } from './schemas.js';
 
 const simpleAbi = [
   {
