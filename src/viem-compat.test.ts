@@ -33,17 +33,14 @@ import {
   seaportAbi,
 } from '../test/fixtures/index.js';
 
-// The TS-level checks below depend on `as const satisfies Abi` keeping the
-// literal types intact through buildSchemas. If our types drift, the
-// encodeFunctionData call rejects the `args` assignment — that compile
-// failure *is* the assertion. Don't paper over it with `as any` or helper
-// casts; debug the type signatures instead.
+// The TS-level checks below depend on `as const satisfies Abi` preserving
+// literal types through buildSchemas. If types drift, encodeFunctionData's
+// `args` rejects at compile time — the compile failure IS the assertion.
+// Don't paper over with `as any`; debug the type signatures.
 
-// Minimal named-struct fragment. abitype infers `placeOrder`'s arg as
-// `{ maker: \`0x${string}\`, amount: bigint }` — an object, not a tuple.
-// The encodeFunctionData call below proves our table delivers that exact
-// shape; if doBuild ever reverts to emitting z.tuple for named-tuple
-// components, this call fails to compile.
+// Tiny fixture for the named-struct case: abitype infers placeOrder's arg
+// as an object (not a tuple). encodeFunctionData below fails to compile
+// if doBuild ever regresses to emitting z.tuple for named-tuple components.
 const structAbi = [
   {
     type: 'function',
@@ -159,10 +156,9 @@ describe('viem-compat: runtime loop over every fixture', () => {
         if (!schema) throw new Error(`table missing ${sig}`);
         const placeholder = f.inputs.map(placeholderFor);
         const parsed = schema.parse(placeholder);
-        // viem disambiguates overloads automatically from `args` shape; pass
-        // the bare name in every case. Object.keys widens us out of the
-        // typed-table sharpness here; the runtime assertion is that viem
-        // accepts the parsed args without throwing.
+        // viem disambiguates overloads from `args` shape, so pass the bare name.
+        // Object.keys widens away the typed-table sharpness; we're only
+        // asserting viem accepts the parsed args at runtime.
         expect(() =>
           encodeFunctionData({
             abi: abi as Abi,
@@ -175,20 +171,12 @@ describe('viem-compat: runtime loop over every fixture', () => {
   }
 });
 
-// === TS-level: exhaustive mapped-type assertion per fixture ===
-//
-// For every function in every fixture, assert that the schema the table
-// returns parses to exactly abitype's `AbiParametersToPrimitiveTypes` of the
-// function's inputs — using strict structural equality, not assignability.
-// Equal<X, Y> is needed because plain `extends` is bidirectional-assignable
-// and would let widened types slip through silently. Each fixture gets one
-// const declaration; mismatches surface as `['MISMATCH', sig]` or
-// `['NOT_ZOD', sig]` tuples in the assertion's RHS and fail to satisfy the
-// `{ [K]: true }` constraint on the LHS.
-//
-// Keying by Sig<F> (not F['name']) covers overloaded functions too: every
-// function entry has a unique canonical signature, so the mapped type
-// preserves all of them without collapsing.
+// Exhaustive TS-level assertion per fixture: each function's schema must
+// parse to exactly abitype's AbiParametersToPrimitiveTypes of its inputs
+// (strict equality via Equal — plain `extends` would let widened types slip
+// through). Mismatches surface as ['MISMATCH', sig] / ['NOT_ZOD', sig] /
+// ['MISSING', sig] tuples and fail the `{ [K]: true }` constraint below.
+// Keying by Sig<F> rather than F['name'] keeps every overload distinct.
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
@@ -202,10 +190,9 @@ type Check<A extends Abi, S> = {
     : ['MISSING', Sig<F>];
 };
 
-// Two lines per fixture per plan: snapshot the table into a const so its
-// inferred type is locked, then assert Check shrinks to all `true`s. The
-// `{ [K]: true }` constraint is what trips when Check produces any of the
-// `'MISMATCH'` / `'NOT_ZOD'` / `'MISSING'` markers.
+// For each fixture: snapshot the table into a const to lock its inferred
+// type, then assert Check<> shrinks to all `true`s. The `{ [K]: true }`
+// constraint trips on any 'MISMATCH' / 'NOT_ZOD' / 'MISSING' marker.
 const erc20Schemas = buildSchemas(erc20Abi);
 const _erc20: { [K in keyof Check<typeof erc20Abi, typeof erc20Schemas>]: true } =
   {} as Check<typeof erc20Abi, typeof erc20Schemas>;

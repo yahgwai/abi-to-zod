@@ -2,11 +2,9 @@ import { z } from 'zod';
 
 type Hex = `0x${string}`;
 
-// BoundExpr carries the bigint twice — once as a value the runtime refine
-// uses directly, once as a source expression codegen renders verbatim.
-// Two adjacent fields in one place is the deliberate trade for readable
-// generated output (`(1n << 256n) - 1n` instead of the resolved literal).
-// Cross-checked per width in primitives-spec.test.ts.
+// Bound expressed twice: as a bigint for the runtime refine and as a
+// source string codegen emits verbatim, so generated files show
+// `(1n << 256n) - 1n` rather than the resolved literal.
 type BoundExpr = {
   readonly value: bigint;
   readonly source: string;
@@ -190,11 +188,9 @@ function dispatchPrimitive<T>(base: string, h: PrimitiveHandlers<T>): T {
   throw new Error(`Unknown Solidity primitive type: ${base}`);
 }
 
-// abitype maps int<=48 / uint<=48 to `number` (Register.intType) and wider
-// widths to `bigint` (Register.bigIntType). We keep the bound check on
-// bigint to avoid any precision concerns, then narrow to `number` for the
-// small widths. Matching abitype's default register is a hard constraint —
-// it's what `viem.encodeFunctionData` types against.
+// abitype's default Register maps int<=48 / uint<=48 to `number`, wider to
+// `bigint`. We check bounds in bigint then narrow for the small widths.
+// Matching abitype is non-negotiable: viem.encodeFunctionData types against it.
 const NUMBER_WIDTH_MAX = 48;
 
 const SPEC_HANDLERS: PrimitiveHandlers<Spec> = {

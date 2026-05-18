@@ -10,14 +10,12 @@ import { FIXTURES, erc20Abi, arbInfoAbi } from '../test/fixtures/index.js';
 function evalGenerated(source: string): {
   schemas: Record<string, z.ZodType>;
 } {
-  // Strip TS-only assertions and the `import { z } from 'zod'` line; we
-  // supply z and the consts are declared inline by the source body.
+  // Strip the import (we inject z below), drop TS-only assertions, and remove
+  // `export`/`as const` so the source runs as plain JS and exposes `schemas`.
   const js = source
     .replace(/^import \{ z \} from 'zod';\n/m, '')
     .replace(/ as `0x\$\{string\}`/g, '');
-  // Replace `export const` with `const` so we can collect via locals.
   const noExports = js.replace(/^export const /gm, 'const ');
-  // The `as const` cast on the table is TS-only.
   const noAsConst = noExports.replace(/\}\s*as\s+const;/g, '};');
   const fn = new Function('z', `${noAsConst}\nreturn schemas;`);
   const schemas = fn(z) as Record<string, z.ZodType>;
@@ -40,7 +38,7 @@ describe('renderSchemas: equivalence with buildSchemas', () => {
         try {
           input = f.inputs.map(placeholderFor);
         } catch {
-          // skip functions whose inputs use unsupported types (none expected)
+          // placeholderFor throws on unsupported types; no fixture hits this today.
           continue;
         }
 

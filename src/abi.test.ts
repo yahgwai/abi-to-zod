@@ -162,9 +162,8 @@ describe('buildSchemas table', () => {
   });
 
   it('returns undefined for unknown name or signature', () => {
-    // The typed SchemaTable rejects unknown keys at compile time. The runtime
-    // test below is the safety net proving no stray props slipped in;
-    // casting widens the read but the runtime shape is what we're asserting.
+    // SchemaTable rejects unknown keys at compile time; this is the runtime
+    // safety net for stray props. Cast widens the read so we can probe.
     const table = buildSchemas(simpleAbi) as Record<string, unknown>;
     expect(table['unknown']).toBeUndefined();
     expect(table['transfer(uint256)']).toBeUndefined();

@@ -38,13 +38,13 @@ export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   return out;
 }
 
-// Standard "are these two types identical" trick. Used both to filter
-// unambiguous name keys and to anchor the assertion in viem-compat tests.
+// Standard type-equality trick; used to filter unambiguous name keys and
+// to anchor the structural assertion in viem-compat tests.
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-// Peel array suffixes off a Solidity type string. Mirrors what parseType
-// does at runtime: `'uint256[][3]'` -> `['uint256', '[][3]']`.
+// Type-level array-suffix peel: 'uint256[][3]' -> ['uint256', '[][3]'].
+// Mirrors runtime parseType.
 type SplitArraySuffix<T extends string, Acc extends string = ''> =
   T extends `${infer Base}[${infer Size}]`
     ? SplitArraySuffix<Base, `[${Size}]${Acc}`>
@@ -56,7 +56,6 @@ type NormalizeBase<B extends string> = B extends 'uint'
     ? 'int256'
     : B;
 
-// Comma-join the canonical types of an ABI parameter tuple.
 type ParamsToCanonicalString<P extends readonly AbiParameter[]> =
   P extends readonly [
     infer Head extends AbiParameter,
@@ -67,10 +66,8 @@ type ParamsToCanonicalString<P extends readonly AbiParameter[]> =
       : `${CanonicalTypeOf<Head>},${ParamsToCanonicalString<Tail>}`
     : '';
 
-// Canonical Solidity type for a single parameter — must match
-// canonicalType() in build.ts character-for-character. Tuple components
-// render as `(child1,child2,...)`, then the parsed array suffixes are
-// appended verbatim.
+// Type-level canonicalType(): MUST match canonicalType() in build.ts
+// byte-for-byte, or signature-key lookups mismatch.
 type CanonicalTypeOf<P extends AbiParameter> =
   SplitArraySuffix<P['type']> extends [
     infer Base extends string,
@@ -83,9 +80,8 @@ type CanonicalTypeOf<P extends AbiParameter> =
       : `${NormalizeBase<Base>}${Suffix}`
     : never;
 
-// Canonical `name(inputTypes...)` signature for a function — must equal
-// canonicalSignature(f) at runtime for the same entry, otherwise table
-// lookups by signature key mismatch.
+// Type-level canonicalSignature(): MUST equal runtime canonicalSignature(f),
+// otherwise SchemaTable lookups by signature key mismatch.
 export type Sig<F extends AbiFunction> =
   `${F['name']}(${ParamsToCanonicalString<F['inputs']>})`;
 
@@ -93,9 +89,8 @@ type FunctionEntries<A extends Abi> = Extract<A[number], { type: 'function' }>;
 
 type SchemaFor<F extends AbiFunction> = z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>;
 
-// Unambiguous function name -> schema. Overloaded names map to `never` so
-// callers must reach for the signature key instead, mirroring runtime
-// (buildSchemas only writes the bare-name slot when counts.get(name) === 1).
+// Unambiguous-name -> schema; overloaded names map to `never` so callers
+// must reach for the signature key. Matches buildSchemas' runtime rule.
 type NameKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Equal<
     Extract<FunctionEntries<A>, { name: F['name'] }>,
@@ -105,9 +100,8 @@ type NameKeys<A extends Abi> = {
     : never]: SchemaFor<F>;
 };
 
-// Every function -> schema, keyed by the canonical signature string. No
-// loose index signature: overloaded and uniquely-named functions are both
-// addressable here at exact types.
+// Every function -> schema, keyed by canonical signature. No loose index
+// signature: every entry is addressable at its exact inferred type.
 type SignatureKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Sig<F>]: SchemaFor<F>;
 };
@@ -120,10 +114,8 @@ export type FunctionPlanEntry = {
   readonly overloaded: boolean;
 };
 
-// Shared "what functions are in this ABI" pass. Both buildSchemas and the
-// codegen consume this; keeping the overload-detection rule in one place
-// means the runtime table and the generated source can't disagree on
-// which names are unambiguous.
+// Shared by buildSchemas and the codegen: keeps overload detection in one
+// place so the runtime table and generated source can't disagree.
 export function planFunctions(abi: Abi): FunctionPlanEntry[] {
   const fns = filterFunctions(abi);
   const counts = new Map<string, number>();

@@ -40,11 +40,9 @@ function constNameToBase(name: string): string {
   throw new Error(`unknown const name ${name}`);
 }
 
-// Mirror the function-level entry point: positional tuple wrap, no
-// object-ification at the top — only nested struct components opt into
-// objects per abitype's rule. Wrapping `params` into a tuple-typed
-// AbiParameter would conflate the two layers (the wrapper itself would
-// become an object whenever its components are all named).
+// Mirror buildFunctionInputsSchema: wrap params in a top-level tuple
+// without object-ifying — only nested struct components become objects.
+// Wrapping as a tuple-typed AbiParameter would collapse the two layers.
 function asFunctionInputs(params: AbiParameter[]): z.ZodType {
   const items = params.map((p) => buildParamSchema(p));
   return z.tuple(items as [z.ZodType, ...z.ZodType[]]);

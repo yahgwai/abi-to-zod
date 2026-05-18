@@ -6,9 +6,9 @@ import type {
 import { parseType } from './type-parser.js';
 import { primitiveSchema } from './primitives.js';
 
-// Loose local shape kept for internal recursion and the renderer helpers,
-// which both operate on runtime-derived data (JSON-loaded ABIs). The public
-// entry point below narrows to abitype's stricter union for type inference.
+// Loose internal shape: recursion and rendering operate on runtime ABI
+// data. The public buildParamSchema narrows to abitype's stricter union
+// for inference.
 export type AbiParameter = {
   readonly type: string;
   readonly name?: string;
@@ -31,16 +31,10 @@ export function buildParamSchema<const P extends AbitypeAbiParameter>(
   >;
 }
 
-// Mirrors abitype's AbiComponentsToPrimitiveType: when every struct
-// component carries a non-empty `name`, the inferred type is an object
-// keyed by those names; otherwise it's a positional tuple. We branch the
-// runtime here so it actually delivers what `buildParamSchema`'s typed return
-// claims. Top-level function inputs stay positional (handled in
-// buildFunctionInputsSchema) — only struct components opt into the object shape.
-//
-// Returning the typed pairs (rather than a boolean) carries the
-// "name is a non-empty string" narrowing through to the call sites,
-// so the object branch never needs an `as string` cast.
+// Named struct components -> object; otherwise positional tuple. Mirrors
+// abitype's AbiComponentsToPrimitiveType so the runtime delivers what
+// buildParamSchema's typed return claims. Returns the typed (name, param)
+// pairs (not a boolean) so the "name is non-empty" narrowing reaches callers.
 export function pickNamedComponents(
   comps: readonly AbiParameter[],
 ): readonly (readonly [string, AbiParameter])[] | null {
