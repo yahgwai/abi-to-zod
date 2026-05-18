@@ -1,12 +1,23 @@
 {
   "name": "abi-to-zod",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Generate zod schemas from Ethereum ABIs",
+  "keywords": [
+    "ethereum",
+    "abi",
+    "zod",
+    "schema",
+    "codegen",
+    "viem",
+    "abitype",
+    "typescript"
+  ],
+  "author": "Chris Buckland <cpbuckland88@gmail.com>",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "abi-to-zod": "./dist/cli.js"
+    "abi-to-zod": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -15,21 +26,30 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "postbuild": "chmod +x dist/cli.js",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "regenerate:golden": "tsx scripts/regenerate-golden.ts",
-    "sync:fixtures": "tsx scripts/sync-fixtures.ts"
+    "sync:fixtures": "tsx scripts/sync-fixtures.ts",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yahgwai/abi-to-zod.git"
   },
+  "bugs": {
+    "url": "https://github.com/yahgwai/abi-to-zod/issues"
+  },
+  "homepage": "https://github.com/yahgwai/abi-to-zod#readme",
   "dependencies": {
     "abitype": "^1.2.4",
     "zod": "^4.3.6"
