@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderSchemas } from '../src/render.js';
@@ -40,7 +40,7 @@ function writeAbiJson(): string {
 describe('cli', () => {
   it('stdout matches programmatic renderSchemas when no output path given', () => {
     const fixturePath = writeAbiJson();
-    const expected = renderSchemas(erc20Abi, basename(fixturePath));
+    const expected = renderSchemas(erc20Abi);
 
     const res = spawnSync(process.execPath, [cliPath, fixturePath], { encoding: 'utf8' });
     expect(res.status).toBe(0);
@@ -50,7 +50,7 @@ describe('cli', () => {
 
   it('writes to output file when given', () => {
     const fixturePath = writeAbiJson();
-    const expected = renderSchemas(erc20Abi, basename(fixturePath));
+    const expected = renderSchemas(erc20Abi);
 
     const out = join(makeTmpDir(), 'out.ts');
     const res = spawnSync(process.execPath, [cliPath, fixturePath, out], { encoding: 'utf8' });

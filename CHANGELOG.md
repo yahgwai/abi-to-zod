@@ -15,7 +15,7 @@ Initial release.
 - `buildSchemas(abi)` — build a typed table of Zod schemas for an ABI's function inputs, keyed by both unambiguous function name and canonical signature.
 - `buildFunctionInputsSchema(entry)` — build a Zod tuple schema for a single function entry's inputs.
 - `buildParamSchema(param)` — build a Zod schema for an individual ABI parameter (including nested tuples and arrays).
-- `renderSchemas(abi, sourceName?)` — emit a TypeScript source file of Zod schemas for an ABI, suitable for committing alongside generated bindings.
+- `renderSchemas(abi)` — emit a TypeScript source file of Zod schemas for an ABI, suitable for committing alongside generated bindings.
 - `abi-to-zod` CLI — `abi-to-zod <input-abi.json> [output.ts]` to render schemas to stdout or a file.
 - Type-level `SchemaTable<A>` so consumers get exact inferred input types for each function.
 - Compatibility with `abitype`/`viem` ABI shapes.
