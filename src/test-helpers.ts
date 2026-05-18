@@ -1,4 +1,4 @@
-import { type AbiParameter } from './build.js';
+import { type RawAbiParameter } from './build.js';
 import { parseType } from './type-parser.js';
 
 export function placeholderPrimitive(base: string): unknown {
@@ -12,7 +12,7 @@ export function placeholderPrimitive(base: string): unknown {
   throw new Error(`No placeholder for base type: ${base}`);
 }
 
-export function placeholderFor(param: AbiParameter): unknown {
+export function placeholderFor(param: RawAbiParameter): unknown {
   const { base, suffixes } = parseType(param.type);
   let value: unknown;
   if (base === 'tuple') {

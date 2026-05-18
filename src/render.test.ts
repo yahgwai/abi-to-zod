@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { buildParamSchema, type AbiParameter } from './build.js';
+import { buildParamSchema, type RawAbiParameter } from './build.js';
 import {
   collectPrimitives,
   renderParamSchema,
@@ -13,7 +13,7 @@ import { placeholderFor } from './test-helpers.js';
 import { FIXTURES, arbInfoAbi, erc20Abi } from '../test/fixtures/index.js';
 
 // Build a "consts" object so eval'd source can resolve UINT256/etc. as locals.
-function evalRenderedTuple(params: readonly AbiParameter[]): z.ZodType {
+function evalRenderedTuple(params: readonly RawAbiParameter[]): z.ZodType {
   const used = collectPrimitives(params);
   const constDecls = [...used]
     .sort()
@@ -46,13 +46,13 @@ function constNameToBase(name: string): string {
 
 // Mirror buildFunctionInputsSchema: wrap params in a top-level tuple
 // without object-ifying — only nested struct components become objects.
-// Wrapping as a tuple-typed AbiParameter would collapse the two layers.
-function asFunctionInputs(params: AbiParameter[]): z.ZodType {
+// Wrapping as a tuple-typed RawAbiParameter would collapse the two layers.
+function asFunctionInputs(params: RawAbiParameter[]): z.ZodType {
   const items = params.map((p) => buildParamSchema(p));
   return z.tuple(items as [z.ZodType, ...z.ZodType[]]);
 }
 
-function expectSameParse(params: AbiParameter[], inputs: unknown) {
+function expectSameParse(params: RawAbiParameter[], inputs: unknown) {
   const runtime = asFunctionInputs(params);
   const generated = evalRenderedTuple(params);
   const a = runtime.safeParse(inputs);
@@ -63,7 +63,7 @@ function expectSameParse(params: AbiParameter[], inputs: unknown) {
 
 describe('renderTupleSchema: equivalence with buildParamSchema', () => {
   it('flat tuple of primitives', () => {
-    const params: AbiParameter[] = [
+    const params: RawAbiParameter[] = [
       { type: 'address', name: 'who' },
       { type: 'uint256', name: 'amount' },
     ];
@@ -72,7 +72,7 @@ describe('renderTupleSchema: equivalence with buildParamSchema', () => {
   });
 
   it('nested all-named tuple', () => {
-    const params: AbiParameter[] = [
+    const params: RawAbiParameter[] = [
       {
         type: 'tuple',
         name: 'inner',
@@ -90,25 +90,25 @@ describe('renderTupleSchema: equivalence with buildParamSchema', () => {
   });
 
   it('dynamic array of uint256', () => {
-    const params: AbiParameter[] = [{ type: 'uint256[]', name: 'amounts' }];
+    const params: RawAbiParameter[] = [{ type: 'uint256[]', name: 'amounts' }];
     expectSameParse(params, [['1', '2', '3']]);
     expectSameParse(params, [[]]);
   });
 
   it('fixed array of uint64', () => {
-    const params: AbiParameter[] = [{ type: 'uint64[2]', name: 'pair' }];
+    const params: RawAbiParameter[] = [{ type: 'uint64[2]', name: 'pair' }];
     expectSameParse(params, [['10', '20']]);
     expectSameParse(params, [['10']]);
   });
 
   it('nested fixed + dynamic', () => {
-    const params: AbiParameter[] = [{ type: 'uint64[3][]', name: 'rows' }];
+    const params: RawAbiParameter[] = [{ type: 'uint64[3][]', name: 'rows' }];
     expectSameParse(params, [[['1', '2', '3'], ['4', '5', '6']]]);
     expectSameParse(params, [[['1', '2']]]);
   });
 
   it('array of all-named tuples', () => {
-    const params: AbiParameter[] = [
+    const params: RawAbiParameter[] = [
       {
         type: 'tuple[]',
         name: 'pairs',
@@ -127,7 +127,7 @@ describe('renderTupleSchema: equivalence with buildParamSchema', () => {
   });
 
   it('all-named tuple containing array', () => {
-    const params: AbiParameter[] = [
+    const params: RawAbiParameter[] = [
       {
         type: 'tuple',
         name: 'withList',

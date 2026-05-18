@@ -1,18 +1,16 @@
 import { z } from 'zod';
-import type {
-  AbiParameter as AbitypeAbiParameter,
-  AbiParameterToPrimitiveType,
-} from 'abitype';
+import type { AbiParameter, AbiParameterToPrimitiveType } from 'abitype';
 import { parseType } from './type-parser.js';
 import { primitiveSchema } from './primitives.js';
 
-// Loose internal shape: recursion and rendering operate on runtime ABI
-// data. The public buildParamSchema narrows to abitype's stricter union
-// for inference.
-export type AbiParameter = {
+// Pre-validation runtime shape: `type` is a string (not abitype's literal
+// union) and `components` is always optional. We use this internally so
+// recursion and rendering can work on JSON-loaded ABI data before the
+// public buildParamSchema narrows to abitype's stricter version.
+export type RawAbiParameter = {
   readonly type: string;
   readonly name?: string;
-  readonly components?: readonly AbiParameter[];
+  readonly components?: readonly RawAbiParameter[];
 };
 
 export class BuildSchemaError extends Error {
@@ -22,11 +20,11 @@ export class BuildSchemaError extends Error {
   }
 }
 
-export function buildParamSchema<const P extends AbitypeAbiParameter>(
+export function buildParamSchema<const P extends AbiParameter>(
   param: P,
   path?: readonly string[],
 ): z.ZodType<AbiParameterToPrimitiveType<P>> {
-  return doBuild(param as unknown as AbiParameter, path) as z.ZodType<
+  return doBuild(param as unknown as RawAbiParameter, path) as z.ZodType<
     AbiParameterToPrimitiveType<P>
   >;
 }
@@ -36,10 +34,10 @@ export function buildParamSchema<const P extends AbitypeAbiParameter>(
 // buildParamSchema's typed return claims. Returns the typed (name, param)
 // pairs (not a boolean) so the "name is non-empty" narrowing reaches callers.
 export function pickNamedComponents(
-  comps: readonly AbiParameter[],
-): readonly (readonly [string, AbiParameter])[] | null {
+  comps: readonly RawAbiParameter[],
+): readonly (readonly [string, RawAbiParameter])[] | null {
   if (comps.length === 0) return null;
-  const out: (readonly [string, AbiParameter])[] = [];
+  const out: (readonly [string, RawAbiParameter])[] = [];
   for (const c of comps) {
     if (typeof c.name !== 'string' || c.name === '') return null;
     out.push([c.name, c]);
@@ -47,7 +45,7 @@ export function pickNamedComponents(
   return out;
 }
 
-function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
+function doBuild(param: RawAbiParameter, path: readonly string[] = []): z.ZodType {
   try {
     const { base, suffixes } = parseType(param.type);
 
@@ -89,7 +87,7 @@ function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
   }
 }
 
-export function canonicalType(param: AbiParameter): string {
+export function canonicalType(param: RawAbiParameter): string {
   const { base, suffixes } = parseType(param.type);
   let s: string;
   if (base === 'tuple') {

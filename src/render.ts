@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { parseType } from './type-parser.js';
 import { primitiveConstName, primitiveSource } from './primitives.js';
 import {
-  type AbiParameter,
+  type RawAbiParameter,
   BuildSchemaError,
   canonicalType,
   pickNamedComponents,
@@ -41,7 +41,7 @@ function constNameToBase(name: string): string {
 export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): string {
   const plan = planFunctions(abi);
 
-  const allInputs: AbiParameter[] = [];
+  const allInputs: RawAbiParameter[] = [];
   for (const { entry } of plan) allInputs.push(...entry.inputs);
   const usedPrims = collectPrimitives(allInputs);
 
@@ -109,14 +109,14 @@ export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): strin
   return out.join('\n');
 }
 
-function commentFor(param: AbiParameter): string {
+function commentFor(param: RawAbiParameter): string {
   const sig = canonicalType(param);
   const name = param.name ?? '';
   return name ? `/* ${name}: ${sig} */ ` : `/* ${sig} */ `;
 }
 
 export function renderParamSchema(
-  param: AbiParameter,
+  param: RawAbiParameter,
   resolver: PrimitiveResolver,
   indent: string = '',
   path: readonly string[] = [],
@@ -151,7 +151,7 @@ export function renderParamSchema(
 }
 
 export function renderTupleSchema(
-  params: readonly AbiParameter[],
+  params: readonly RawAbiParameter[],
   resolver: PrimitiveResolver,
   indent: string = '',
   path: readonly string[] = [],
@@ -166,7 +166,7 @@ export function renderTupleSchema(
 }
 
 export function renderObjectSchema(
-  named: readonly (readonly [string, AbiParameter])[],
+  named: readonly (readonly [string, RawAbiParameter])[],
   resolver: PrimitiveResolver,
   indent: string = '',
   path: readonly string[] = [],
@@ -179,13 +179,13 @@ export function renderObjectSchema(
   return `z.strictObject({\n${items.join('\n')}\n${indent}})`;
 }
 
-export function collectPrimitives(params: readonly AbiParameter[]): Set<string> {
+export function collectPrimitives(params: readonly RawAbiParameter[]): Set<string> {
   const used = new Set<string>();
   for (const p of params) walkParam(p, used);
   return used;
 }
 
-function walkParam(param: AbiParameter, used: Set<string>): void {
+function walkParam(param: RawAbiParameter, used: Set<string>): void {
   const { base } = parseType(param.type);
   if (base === 'tuple') {
     for (const c of param.components ?? []) walkParam(c, used);

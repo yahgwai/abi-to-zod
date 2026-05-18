@@ -8,4 +8,4 @@ export {
   type FunctionPlanEntry,
   type SchemaTable,
 } from './schemas.js';
-export { buildParamSchema, BuildSchemaError, type AbiParameter } from './build.js';
+export { buildParamSchema, BuildSchemaError } from './build.js';

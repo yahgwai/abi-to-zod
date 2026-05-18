@@ -6,7 +6,7 @@ import type {
   AbiParametersToPrimitiveTypes,
 } from 'abitype';
 import {
-  type AbiParameter as LooseAbiParameter,
+  type RawAbiParameter,
   buildParamSchema,
   canonicalType,
 } from './build.js';
@@ -14,8 +14,8 @@ import {
 export type AbiFunctionEntry = {
   readonly type: 'function';
   readonly name: string;
-  readonly inputs: readonly LooseAbiParameter[];
-  readonly outputs?: readonly LooseAbiParameter[];
+  readonly inputs: readonly RawAbiParameter[];
+  readonly outputs?: readonly RawAbiParameter[];
   readonly stateMutability?: 'pure' | 'view' | 'nonpayable' | 'payable';
 };
 
@@ -47,7 +47,7 @@ export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
       type?: string;
       name?: unknown;
       inputs?: unknown;
-      outputs?: readonly LooseAbiParameter[];
+      outputs?: readonly RawAbiParameter[];
     };
     if (e.type !== 'function') continue;
     if (typeof e.name !== 'string') {
