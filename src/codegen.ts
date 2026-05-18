@@ -14,16 +14,9 @@ let cachedVersion: string | undefined;
 function generatorVersion(): string {
   if (cachedVersion !== undefined) return cachedVersion;
   const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [join(here, '..', 'package.json'), join(here, '..', '..', 'package.json')];
-  for (const p of candidates) {
-    try {
-      cachedVersion = String(JSON.parse(readFileSync(p, 'utf8')).version);
-      return cachedVersion;
-    } catch {
-      // try next
-    }
-  }
-  cachedVersion = '0.0.0';
+  cachedVersion = String(
+    JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')).version,
+  );
   return cachedVersion;
 }
 
