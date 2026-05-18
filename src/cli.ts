@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'node:fs';
-import { basename } from 'node:path';
 import { renderSchemas } from './render.js';
 import { type Abi } from './schemas.js';
 
@@ -11,6 +10,6 @@ if (!input) {
 }
 
 const abi = JSON.parse(readFileSync(input, 'utf8')) as Abi;
-const src = renderSchemas(abi, basename(input));
+const src = renderSchemas(abi);
 if (output) writeFileSync(output, src);
 else process.stdout.write(src);

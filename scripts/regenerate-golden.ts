@@ -13,8 +13,7 @@ const outDir = join(root, 'test', 'fixtures-generated');
 let count = 0;
 for (const [rel, abi] of Object.entries(FIXTURES)) {
   const outPath = join(outDir, rel);
-  const sourceName = rel.split('/').pop() ?? rel;
-  const src = renderSchemas(abi, sourceName);
+  const src = renderSchemas(abi);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, src);
   count++;
