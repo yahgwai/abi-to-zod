@@ -1,35 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { buildSchema, BuildSchemaError } from './build.js';
+import { buildParamSchema, BuildSchemaError } from '../src/build.js';
 
-describe('buildSchema: primitives', () => {
+describe('buildParamSchema: primitives', () => {
   it('builds a schema for a uint256', () => {
-    const s = buildSchema({ type: 'uint256', name: 'x' });
+    const s = buildParamSchema({ type: 'uint256', name: 'x' });
     expect(s.parse('42')).toBe(42n);
   });
 
   it('builds a schema for an address', () => {
-    const s = buildSchema({ type: 'address', name: 'who' });
+    const s = buildParamSchema({ type: 'address', name: 'who' });
     const a = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
     expect(s.parse(a)).toBe(a);
   });
 });
 
-describe('buildSchema: arrays', () => {
+describe('buildParamSchema: arrays', () => {
   it('dynamic array of uint256', () => {
-    const s = buildSchema({ type: 'uint256[]', name: 'amounts' });
+    const s = buildParamSchema({ type: 'uint256[]', name: 'amounts' });
     expect(s.parse(['1', '2', '3'])).toEqual([1n, 2n, 3n]);
     expect(s.parse([])).toEqual([]);
   });
 
   it('fixed-size array of uint64', () => {
-    const s = buildSchema({ type: 'uint64[2]', name: 'pair' });
+    const s = buildParamSchema({ type: 'uint64[2]', name: 'pair' });
     expect(s.parse(['10', '20'])).toEqual([10n, 20n]);
     expect(() => s.parse(['10'])).toThrow();
     expect(() => s.parse(['10', '20', '30'])).toThrow();
   });
 
   it('nested fixed + dynamic', () => {
-    const s = buildSchema({ type: 'uint64[3][]', name: 'rows' });
+    const s = buildParamSchema({ type: 'uint64[3][]', name: 'rows' });
     expect(s.parse([])).toEqual([]);
     expect(s.parse([['1', '2', '3'], ['4', '5', '6']])).toEqual([
       [1n, 2n, 3n],
@@ -39,15 +39,15 @@ describe('buildSchema: arrays', () => {
   });
 
   it('bytes32 array', () => {
-    const s = buildSchema({ type: 'bytes32[]', name: 'hashes' });
+    const s = buildParamSchema({ type: 'bytes32[]', name: 'hashes' });
     const h = '0x' + 'a'.repeat(64);
     expect(s.parse([h, h])).toEqual([h, h]);
   });
 });
 
-describe('buildSchema: tuples', () => {
+describe('buildParamSchema: tuples', () => {
   it('tuple with all-named components yields an object', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple',
       name: 'pair',
       components: [
@@ -63,7 +63,7 @@ describe('buildSchema: tuples', () => {
   });
 
   it('tuple with any anonymous component falls back to positional tuple', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple',
       name: 'pair',
       components: [
@@ -76,11 +76,11 @@ describe('buildSchema: tuples', () => {
   });
 
   it('tuple without components throws', () => {
-    expect(() => buildSchema({ type: 'tuple', name: 'bad' })).toThrow(/components/);
+    expect(() => buildParamSchema({ type: 'tuple', name: 'bad' })).toThrow(/components/);
   });
 
   it('nested all-named tuple', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple',
       name: 'outer',
       components: [
@@ -106,7 +106,7 @@ describe('buildSchema: tuples', () => {
   });
 
   it('all-named tuple containing array', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple',
       name: 'withList',
       components: [
@@ -125,7 +125,7 @@ describe('buildSchema: tuples', () => {
   });
 
   it('array of all-named tuples (tuple[])', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple[]',
       name: 'pairs',
       components: [
@@ -145,7 +145,7 @@ describe('buildSchema: tuples', () => {
   });
 
   it('fixed-size array of all-named tuples (tuple[2])', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple[2]',
       name: 'pair',
       components: [{ type: 'uint256', name: 'v' }],
@@ -155,7 +155,7 @@ describe('buildSchema: tuples', () => {
   });
 
   it('2D array of all-named tuples (tuple[][])', () => {
-    const s = buildSchema({
+    const s = buildParamSchema({
       type: 'tuple[][]',
       name: 'grid',
       components: [{ type: 'bool', name: 'b' }],
@@ -166,28 +166,28 @@ describe('buildSchema: tuples', () => {
   });
 
   it('empty tuple (no components) is allowed and stays positional', () => {
-    const s = buildSchema({ type: 'tuple', name: 'empty', components: [] });
+    const s = buildParamSchema({ type: 'tuple', name: 'empty', components: [] });
     expect(s.parse([])).toEqual([]);
   });
 });
 
-describe('buildSchema: rejections', () => {
+describe('buildParamSchema: rejections', () => {
   it('propagates primitive rejections (function)', () => {
-    expect(() => buildSchema({ type: 'function', name: 'f' })).toThrow(/function/);
+    expect(() => buildParamSchema({ type: 'function', name: 'f' })).toThrow(/function/);
   });
 
   it('propagates primitive rejections (fixed)', () => {
-    expect(() => buildSchema({ type: 'fixed128x18', name: 'f' })).toThrow(/fixed-point/);
+    expect(() => buildParamSchema({ type: 'fixed128x18', name: 'f' })).toThrow(/fixed-point/);
   });
 
   it('propagates type-parser rejections', () => {
-    expect(() => buildSchema({ type: 'uint256[0]', name: 'f' })).toThrow(/size 0/);
+    expect(() => buildParamSchema({ type: 'uint256[0]', name: 'f' })).toThrow(/size 0/);
   });
 
   it('wraps errors in BuildSchemaError with the offending type in the message', () => {
     let caught: unknown;
     try {
-      buildSchema({ type: 'mystery', name: 'foo' });
+      buildParamSchema({ type: 'mystery', name: 'foo' });
     } catch (err) {
       caught = err;
     }
@@ -200,7 +200,7 @@ describe('buildSchema: rejections', () => {
   it('reports the path on deeply-nested failures', () => {
     let caught: unknown;
     try {
-      buildSchema({
+      buildParamSchema({
         type: 'tuple',
         name: 'outer',
         components: [
@@ -227,7 +227,7 @@ describe('buildSchema: rejections', () => {
   it('preserves the deepest path through re-throws', () => {
     let caught: unknown;
     try {
-      buildSchema(
+      buildParamSchema(
         {
           type: 'tuple',
           components: [{ type: 'mystery' }],

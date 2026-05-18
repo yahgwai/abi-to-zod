@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalSignature, filterFunctions, type Abi } from './abi.js';
-import { abiFunctionToZod } from './function.js';
+import {
+  buildFunctionInputsSchema,
+  canonicalSignature,
+  filterFunctions,
+  type Abi,
+} from '../src/schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
-import { FIXTURES } from '../test/fixtures/index.js';
+import { FIXTURES } from './fixtures/index.js';
 
 function runFixture(relPath: string, abi: Abi) {
   const functions = filterFunctions(abi);
@@ -12,8 +16,8 @@ function runFixture(relPath: string, abi: Abi) {
     it(`builds a schema for every function (${functions.length} fns)`, () => {
       for (const f of functions) {
         expect(
-          () => abiFunctionToZod(f),
-          `abiFunctionToZod failed for ${canonicalSignature(f)}`,
+          () => buildFunctionInputsSchema(f),
+          `buildFunctionInputsSchema failed for ${canonicalSignature(f)}`,
         ).not.toThrow();
       }
     });
@@ -21,7 +25,7 @@ function runFixture(relPath: string, abi: Abi) {
     it('rejects wrong-arity inputs', () => {
       for (const f of functions) {
         if (f.inputs.length === 0) continue;
-        const schema = abiFunctionToZod(f);
+        const schema = buildFunctionInputsSchema(f);
         const short = f.inputs.slice(1).map(placeholderFor);
         const result = schema.safeParse(short);
         if (result.success) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseType } from './type-parser.js';
+import { parseType } from '../src/type-parser.js';
 
 describe('parseType', () => {
   it('parses primitives', () => {

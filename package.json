@@ -12,10 +12,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./codegen": {
-      "types": "./dist/codegen.d.ts",
-      "import": "./dist/codegen.js"
     }
   },
   "files": [
@@ -27,7 +23,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "regenerate:golden": "tsx scripts/regenerate-golden.ts"
+    "regenerate:golden": "tsx scripts/regenerate-golden.ts",
+    "sync:fixtures": "tsx scripts/sync-fixtures.ts"
   },
   "repository": {
     "type": "git",

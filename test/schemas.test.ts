@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Abi } from 'abitype';
-import { abiToZod, canonicalSignature } from './abi.js';
+import { buildFunctionInputsSchema, buildSchemas, canonicalSignature } from '../src/schemas.js';
 
 const simpleAbi = [
   {
@@ -141,10 +141,10 @@ describe('canonicalSignature', () => {
   });
 });
 
-describe('abiToZod barrel', () => {
+describe('buildSchemas table', () => {
   it('exposes name keys for unambiguous functions', () => {
-    const barrel = abiToZod(simpleAbi);
-    const transfer = barrel.transfer;
+    const table = buildSchemas(simpleAbi);
+    const transfer = table.transfer;
     expect(transfer).toBeDefined();
     expect(transfer!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -153,8 +153,8 @@ describe('abiToZod barrel', () => {
   });
 
   it('exposes signature keys for every function', () => {
-    const barrel = abiToZod(simpleAbi);
-    const balanceOf = barrel['balanceOf(address)'];
+    const table = buildSchemas(simpleAbi);
+    const balanceOf = table['balanceOf(address)'];
     expect(balanceOf).toBeDefined();
     expect(balanceOf!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -162,45 +162,44 @@ describe('abiToZod barrel', () => {
   });
 
   it('returns undefined for unknown name or signature', () => {
-    // The typed Barrel rejects unknown keys at compile time. The runtime
-    // test below is the safety net proving no stray props slipped in;
-    // casting widens the read but the runtime shape is what we're asserting.
-    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
-    expect(barrel['unknown']).toBeUndefined();
-    expect(barrel['transfer(uint256)']).toBeUndefined();
+    // SchemaTable rejects unknown keys at compile time; this is the runtime
+    // safety net for stray props. Cast widens the read so we can probe.
+    const table = buildSchemas(simpleAbi) as Record<string, unknown>;
+    expect(table['unknown']).toBeUndefined();
+    expect(table['transfer(uint256)']).toBeUndefined();
   });
 
   it('omits the name key when overloaded, but keeps both signature keys', () => {
-    const barrel = abiToZod(overloadedAbi);
-    expect((barrel as Record<string, unknown>)['foo']).toBeUndefined();
-    expect(barrel['foo(uint256)']).toBeDefined();
-    expect(barrel['foo(address)']).toBeDefined();
-    expect(barrel['foo(uint256)']!.parse(['42'])).toEqual([42n]);
-    expect(barrel['foo(address)']!.parse([
+    const table = buildSchemas(overloadedAbi);
+    expect((table as Record<string, unknown>)['foo']).toBeUndefined();
+    expect(table['foo(uint256)']).toBeDefined();
+    expect(table['foo(address)']).toBeDefined();
+    expect(table['foo(uint256)']!.parse(['42'])).toEqual([42n]);
+    expect(table['foo(address)']!.parse([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     ])).toEqual(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    const barrel = abiToZod(simpleAbi) as Record<string, unknown>;
-    expect(barrel['Transfer']).toBeUndefined();
+    const table = buildSchemas(simpleAbi) as Record<string, unknown>;
+    expect(table['Transfer']).toBeUndefined();
   });
 
   it('handles zero-input functions via signature', () => {
-    const barrel = abiToZod(overloadedAbi);
-    expect(barrel['bar()']).toBeDefined();
-    expect(barrel.bar).toBeDefined();
-    expect(barrel.bar!.parse([])).toEqual([]);
+    const table = buildSchemas(overloadedAbi);
+    expect(table['bar()']).toBeDefined();
+    expect(table.bar).toBeDefined();
+    expect(table.bar!.parse([])).toEqual([]);
   });
 
   it('throws on function entries with missing inputs', () => {
     const abi = [{ type: 'function', name: 'foo' }] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/inputs/);
+    expect(() => buildSchemas(abi)).toThrow(/inputs/);
   });
 
   it('throws on function entries with non-string name', () => {
     const abi = [{ type: 'function', inputs: [] }] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/name/);
+    expect(() => buildSchemas(abi)).toThrow(/name/);
   });
 
   it('failure surfaces immediately, not silently dropped', () => {
@@ -208,6 +207,92 @@ describe('abiToZod barrel', () => {
       { type: 'function', name: 'good', inputs: [] },
       { type: 'function', name: 'bad' },
     ] as unknown as Abi;
-    expect(() => abiToZod(abi)).toThrow(/bad.*inputs/);
+    expect(() => buildSchemas(abi)).toThrow(/bad.*inputs/);
+  });
+});
+
+describe('buildFunctionInputsSchema', () => {
+  it('handles a no-arg function', () => {
+    const s = buildFunctionInputsSchema({ type: 'function', name: 'totalSupply', inputs: [] });
+    expect(s.parse([])).toEqual([]);
+  });
+
+  it('handles a function with primitive inputs', () => {
+    const s = buildFunctionInputsSchema({
+      type: 'function',
+      name: 'transfer',
+      inputs: [
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+      ],
+    });
+    const out = s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100']);
+    expect(out).toEqual(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', 100n]);
+  });
+
+  it('rejects wrong arity', () => {
+    const s = buildFunctionInputsSchema({
+      type: 'function',
+      name: 'transfer',
+      inputs: [
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+      ],
+    });
+    expect(() => s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toThrow();
+    expect(() =>
+      s.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100', 'extra']),
+    ).toThrow();
+  });
+
+  it('handles a function with a named-tuple input (object component)', () => {
+    const s = buildFunctionInputsSchema({
+      type: 'function',
+      name: 'executeOrder',
+      inputs: [
+        {
+          name: 'order',
+          type: 'tuple',
+          components: [
+            { name: 'maker', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+        },
+      ],
+    });
+    const out = s.parse([
+      { maker: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: '100' },
+    ]);
+    expect(out).toEqual([
+      { maker: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', amount: 100n },
+    ]);
+  });
+
+  it('handles a function with an array input', () => {
+    const s = buildFunctionInputsSchema({
+      type: 'function',
+      name: 'batch',
+      inputs: [{ name: 'amounts', type: 'uint256[]' }],
+    });
+    const out = s.parse([['1', '2', '3']]);
+    expect(out).toEqual([[1n, 2n, 3n]]);
+  });
+
+  it('rejects non-function entries', () => {
+    expect(() =>
+      buildFunctionInputsSchema({
+        // @ts-expect-error — deliberately passing wrong type
+        type: 'event',
+        name: 'Transfer',
+        inputs: [],
+      }),
+    ).toThrow(/function entry/);
+    expect(() =>
+      buildFunctionInputsSchema({
+        // @ts-expect-error — deliberately passing wrong type
+        type: 'constructor',
+        inputs: [],
+      }),
+    ).toThrow(/function entry/);
   });
 });

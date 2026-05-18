@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { primitiveSchema } from './primitives.js';
+import { primitiveSchema } from '../src/primitives.js';
 
 describe('primitiveSchema: uint', () => {
   it('accepts decimal strings and emits bigint', () => {

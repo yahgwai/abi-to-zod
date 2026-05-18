@@ -1,12 +1,37 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import type {
   Abi,
   AbiFunction,
   AbiParameter,
   AbiParametersToPrimitiveTypes,
 } from 'abitype';
-import { type AbiParameter as LooseAbiParameter, canonicalType } from './build.js';
-import { abiFunctionToZod, type AbiFunctionEntry } from './function.js';
+import {
+  type RawAbiParameter,
+  buildParamSchema,
+  canonicalType,
+} from './build.js';
+
+export type AbiFunctionEntry = {
+  readonly type: 'function';
+  readonly name: string;
+  readonly inputs: readonly RawAbiParameter[];
+  readonly outputs?: readonly RawAbiParameter[];
+  readonly stateMutability?: 'pure' | 'view' | 'nonpayable' | 'payable';
+};
+
+export function buildFunctionInputsSchema<const F extends AbiFunctionEntry>(
+  entry: F,
+): z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>> {
+  if (entry.type !== 'function') {
+    throw new Error(
+      `buildFunctionInputsSchema expects a function entry, got type=${JSON.stringify((entry as { type?: string }).type ?? '<missing>')}`,
+    );
+  }
+  const items = entry.inputs.map((input, i) => buildParamSchema(input, [`inputs[${i}]`]));
+  return z.tuple(items as [z.ZodType, ...z.ZodType[]]) as unknown as z.ZodType<
+    AbiParametersToPrimitiveTypes<F['inputs']>
+  >;
+}
 
 export type { Abi };
 export { canonicalType };
@@ -22,7 +47,7 @@ export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
       type?: string;
       name?: unknown;
       inputs?: unknown;
-      outputs?: readonly LooseAbiParameter[];
+      outputs?: readonly RawAbiParameter[];
     };
     if (e.type !== 'function') continue;
     if (typeof e.name !== 'string') {
@@ -38,13 +63,13 @@ export function filterFunctions(abi: Abi): AbiFunctionEntry[] {
   return out;
 }
 
-// Standard "are these two types identical" trick. Used both to filter
-// unambiguous name keys and to anchor the assertion in viem-compat tests.
+// Standard type-equality trick; used to filter unambiguous name keys and
+// to anchor the structural assertion in viem-compat tests.
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-// Peel array suffixes off a Solidity type string. Mirrors what parseType
-// does at runtime: `'uint256[][3]'` -> `['uint256', '[][3]']`.
+// Type-level array-suffix peel: 'uint256[][3]' -> ['uint256', '[][3]'].
+// Mirrors runtime parseType.
 type SplitArraySuffix<T extends string, Acc extends string = ''> =
   T extends `${infer Base}[${infer Size}]`
     ? SplitArraySuffix<Base, `[${Size}]${Acc}`>
@@ -56,7 +81,6 @@ type NormalizeBase<B extends string> = B extends 'uint'
     ? 'int256'
     : B;
 
-// Comma-join the canonical types of an ABI parameter tuple.
 type ParamsToCanonicalString<P extends readonly AbiParameter[]> =
   P extends readonly [
     infer Head extends AbiParameter,
@@ -67,10 +91,8 @@ type ParamsToCanonicalString<P extends readonly AbiParameter[]> =
       : `${CanonicalTypeOf<Head>},${ParamsToCanonicalString<Tail>}`
     : '';
 
-// Canonical Solidity type for a single parameter — must match
-// canonicalType() in build.ts character-for-character. Tuple components
-// render as `(child1,child2,...)`, then the parsed array suffixes are
-// appended verbatim.
+// Type-level canonicalType(): MUST match canonicalType() in build.ts
+// byte-for-byte, or signature-key lookups mismatch.
 type CanonicalTypeOf<P extends AbiParameter> =
   SplitArraySuffix<P['type']> extends [
     infer Base extends string,
@@ -83,9 +105,8 @@ type CanonicalTypeOf<P extends AbiParameter> =
       : `${NormalizeBase<Base>}${Suffix}`
     : never;
 
-// Canonical `name(inputTypes...)` signature for a function — must equal
-// canonicalSignature(f) at runtime for the same entry, otherwise barrel
-// lookups by signature key mismatch.
+// Type-level canonicalSignature(): MUST equal runtime canonicalSignature(f),
+// otherwise SchemaTable lookups by signature key mismatch.
 export type Sig<F extends AbiFunction> =
   `${F['name']}(${ParamsToCanonicalString<F['inputs']>})`;
 
@@ -93,9 +114,8 @@ type FunctionEntries<A extends Abi> = Extract<A[number], { type: 'function' }>;
 
 type SchemaFor<F extends AbiFunction> = z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>>;
 
-// Unambiguous function name -> schema. Overloaded names map to `never` so
-// callers must reach for the signature key instead, mirroring runtime
-// (abiToZod only writes the bare-name slot when counts.get(name) === 1).
+// Unambiguous-name -> schema; overloaded names map to `never` so callers
+// must reach for the signature key. Matches buildSchemas' runtime rule.
 type NameKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Equal<
     Extract<FunctionEntries<A>, { name: F['name'] }>,
@@ -105,25 +125,37 @@ type NameKeys<A extends Abi> = {
     : never]: SchemaFor<F>;
 };
 
-// Every function -> schema, keyed by the canonical signature string. No
-// loose index signature: overloaded and uniquely-named functions are both
-// addressable here at exact types.
+// Every function -> schema, keyed by canonical signature. No loose index
+// signature: every entry is addressable at its exact inferred type.
 type SignatureKeys<A extends Abi> = {
   [F in FunctionEntries<A> as Sig<F>]: SchemaFor<F>;
 };
 
-export type Barrel<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
+export type SchemaTable<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
 
-export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
+export type FunctionPlanEntry = {
+  readonly entry: AbiFunctionEntry;
+  readonly signature: string;
+  readonly overloaded: boolean;
+};
+
+export function planFunctions(abi: Abi): FunctionPlanEntry[] {
   const fns = filterFunctions(abi);
   const counts = new Map<string, number>();
   for (const f of fns) counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
+  return fns.map((entry) => ({
+    entry,
+    signature: canonicalSignature(entry),
+    overloaded: (counts.get(entry.name) ?? 0) > 1,
+  }));
+}
 
+export function buildSchemas<const A extends Abi>(abi: A): SchemaTable<A> {
   const out: Record<string, z.ZodType<unknown>> = {};
-  for (const f of fns) {
-    const schema = abiFunctionToZod(f) as z.ZodType<unknown>;
-    out[canonicalSignature(f)] = schema;
-    if (counts.get(f.name) === 1) out[f.name] = schema;
+  for (const { entry, signature, overloaded } of planFunctions(abi)) {
+    const schema = buildFunctionInputsSchema(entry) as z.ZodType<unknown>;
+    out[signature] = schema;
+    if (!overloaded) out[entry.name] = schema;
   }
-  return out as Barrel<A>;
+  return out as SchemaTable<A>;
 }
