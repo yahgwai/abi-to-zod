@@ -31,7 +31,7 @@ const abi = [
 ] as const;
 
 const schemas = buildSchemas(abi);
-schemas.transfer.parse(['0x0000000000000000000000000000000000000000', 1n]);
+schemas.transfer.parse(['0x0000000000000000000000000000000000000000', '1']);
 ```
 
 ### `renderSchemas`
