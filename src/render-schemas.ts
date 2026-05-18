@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type Abi, planFunctions } from './abi.js';
+import { type Abi, planFunctions } from './build-schemas.js';
 import { type AbiParameter } from './build.js';
-import { collectPrimitives, renderTupleSource } from './render.js';
+import { collectPrimitives, renderTupleSchema } from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
 
 let cachedVersion: string | undefined;
@@ -66,7 +66,7 @@ export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): strin
     for (const { entry, signature, overloaded } of sortedFns) {
       if (overloaded) continue;
       out.push(`// ${signature}`);
-      const body = renderTupleSource(entry.inputs, primitiveConstName);
+      const body = renderTupleSchema(entry.inputs, primitiveConstName);
       out.push(`export const ${entry.name}Schema = ${body};`);
       out.push('');
     }
@@ -88,7 +88,7 @@ export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): strin
     .map((f) => ({
       key: f.signature,
       ref: f.overloaded
-        ? renderTupleSource(f.entry.inputs, primitiveConstName, '  ')
+        ? renderTupleSchema(f.entry.inputs, primitiveConstName, '  ')
         : `${f.entry.name}Schema`,
     }))
     .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));

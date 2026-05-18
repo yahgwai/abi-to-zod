@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeFunctionData } from 'viem';
 import type { z } from 'zod';
 import type { Abi, AbiParametersToPrimitiveTypes } from 'abitype';
-import { buildSchemas, canonicalSignature, filterFunctions, type Sig } from './abi.js';
+import { buildSchemas, canonicalSignature, filterFunctions, type Sig } from './build-schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
 import {

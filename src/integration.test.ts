@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalSignature, filterFunctions, type Abi } from './abi.js';
-import { buildFunctionInputsSchema } from './function.js';
+import {
+  buildFunctionInputsSchema,
+  canonicalSignature,
+  filterFunctions,
+  type Abi,
+} from './build-schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
 import { FIXTURES } from '../test/fixtures/index.js';

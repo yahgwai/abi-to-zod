@@ -3,12 +3,12 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { renderSchemas } from '../src/codegen.js';
+import { renderSchemas } from '../src/render-schemas.js';
 
 import { FIXTURES } from '../test/fixtures/index.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = join(root, 'test', 'fixtures-renderSchemasd');
+const outDir = join(root, 'test', 'fixtures-generated');
 
 let count = 0;
 for (const [rel, abi] of Object.entries(FIXTURES)) {
@@ -20,4 +20,4 @@ for (const [rel, abi] of Object.entries(FIXTURES)) {
   count++;
   console.log(`wrote ${relative(root, outPath)}`);
 }
-console.log(`rerenderSchemasd ${count} fixture(s)`);
+console.log(`regenerated ${count} fixture(s)`);

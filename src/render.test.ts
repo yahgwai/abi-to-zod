@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { buildParamSchema, type AbiParameter } from './build.js';
 import {
   renderParamSchema,
-  renderTupleSource,
+  renderTupleSchema,
   collectPrimitives,
 } from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
@@ -19,7 +19,7 @@ function evalRenderedTuple(params: readonly AbiParameter[]): z.ZodType {
       return `const ${c} = ${src};`;
     })
     .join('\n');
-  const body = renderTupleSource(params, primitiveConstName).replace(
+  const body = renderTupleSchema(params, primitiveConstName).replace(
     / as `0x\$\{string\}`/g,
     '',
   );
@@ -57,7 +57,7 @@ function expectSameParse(params: AbiParameter[], inputs: unknown) {
   if (a.success) expect(b.success && b.data).toEqual(a.data);
 }
 
-describe('renderTupleSource: equivalence with buildParamSchema', () => {
+describe('renderTupleSchema: equivalence with buildParamSchema', () => {
   it('flat tuple of primitives', () => {
     const params: AbiParameter[] = [
       { type: 'address', name: 'who' },
@@ -139,7 +139,7 @@ describe('renderTupleSource: equivalence with buildParamSchema', () => {
   });
 
   it('empty tuple', () => {
-    expect(renderTupleSource([], primitiveConstName)).toBe('z.tuple([])');
+    expect(renderTupleSchema([], primitiveConstName)).toBe('z.tuple([])');
   });
 });
 

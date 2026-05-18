@@ -30,8 +30,8 @@ export function renderParamSchema(
       }
       const named = pickNamedComponents(param.components);
       expr = named
-        ? renderObjectSource(named, resolver, indent, path)
-        : renderTupleSource(param.components, resolver, indent, path);
+        ? renderObjectSchema(named, resolver, indent, path)
+        : renderTupleSchema(param.components, resolver, indent, path);
     } else {
       expr = resolver(base);
     }
@@ -50,7 +50,7 @@ export function renderParamSchema(
   }
 }
 
-export function renderTupleSource(
+export function renderTupleSchema(
   params: readonly AbiParameter[],
   resolver: PrimitiveResolver,
   indent: string = '',
@@ -65,7 +65,7 @@ export function renderTupleSource(
   return `z.tuple([\n${items.join('\n')}\n${indent}])`;
 }
 
-export function renderObjectSource(
+export function renderObjectSchema(
   named: readonly (readonly [string, AbiParameter])[],
   resolver: PrimitiveResolver,
   indent: string = '',

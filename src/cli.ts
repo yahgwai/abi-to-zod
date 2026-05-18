@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { renderSchemas } from './codegen.js';
-import { type Abi } from './abi.js';
+import { renderSchemas } from './render-schemas.js';
+import { type Abi } from './build-schemas.js';
 
 const [, , input, output] = process.argv;
 if (!input) {

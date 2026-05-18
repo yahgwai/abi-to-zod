@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 
-import { renderSchemas } from './codegen.js';
-import { buildSchemas, filterFunctions, canonicalSignature, type Abi } from './abi.js';
+import { renderSchemas } from './render-schemas.js';
+import { buildSchemas, filterFunctions, canonicalSignature, type Abi } from './build-schemas.js';
 import { placeholderFor } from './test-helpers.js';
 
 import { FIXTURES, erc20Abi, arbInfoAbi } from '../test/fixtures/index.js';

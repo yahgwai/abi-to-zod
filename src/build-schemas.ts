@@ -1,12 +1,37 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import type {
   Abi,
   AbiFunction,
   AbiParameter,
   AbiParametersToPrimitiveTypes,
 } from 'abitype';
-import { type AbiParameter as LooseAbiParameter, canonicalType } from './build.js';
-import { buildFunctionInputsSchema, type AbiFunctionEntry } from './function.js';
+import {
+  type AbiParameter as LooseAbiParameter,
+  buildParamSchema,
+  canonicalType,
+} from './build.js';
+
+export type AbiFunctionEntry = {
+  readonly type: 'function';
+  readonly name: string;
+  readonly inputs: readonly LooseAbiParameter[];
+  readonly outputs?: readonly LooseAbiParameter[];
+  readonly stateMutability?: 'pure' | 'view' | 'nonpayable' | 'payable';
+};
+
+export function buildFunctionInputsSchema<const F extends AbiFunctionEntry>(
+  entry: F,
+): z.ZodType<AbiParametersToPrimitiveTypes<F['inputs']>> {
+  if (entry.type !== 'function') {
+    throw new Error(
+      `buildFunctionInputsSchema expects a function entry, got type=${JSON.stringify((entry as { type?: string }).type ?? '<missing>')}`,
+    );
+  }
+  const items = entry.inputs.map((input, i) => buildParamSchema(input, [`inputs[${i}]`]));
+  return z.tuple(items as [z.ZodType, ...z.ZodType[]]) as unknown as z.ZodType<
+    AbiParametersToPrimitiveTypes<F['inputs']>
+  >;
+}
 
 export type { Abi };
 export { canonicalType };
