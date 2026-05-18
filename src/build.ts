@@ -71,6 +71,10 @@ function doBuild(param: RawAbiParameter, path: readonly string[] = []): z.ZodTyp
       schema = suffix === null ? z.array(schema) : z.array(schema).length(suffix);
     }
 
+    if (param.name) {
+      schema = schema.describe(`${param.name}: ${canonicalType(param)}`);
+    }
+
     return schema;
   } catch (err) {
     if (err instanceof BuildSchemaError) throw err;
