@@ -23,7 +23,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "regenerate:golden": "tsx scripts/regenerate-golden.ts"
+    "regenerate:golden": "tsx scripts/regenerate-golden.ts",
+    "sync:fixtures": "tsx scripts/sync-fixtures.ts"
   },
   "repository": {
     "type": "git",
