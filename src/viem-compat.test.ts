@@ -39,7 +39,7 @@ import { abi as seaportAbi } from '../test/fixtures/mainnet/Seaport.js';
 
 // Minimal named-struct fragment. abitype infers `placeOrder`'s arg as
 // `{ maker: \`0x${string}\`, amount: bigint }` — an object, not a tuple.
-// The encodeFunctionData call below proves our barrel delivers that exact
+// The encodeFunctionData call below proves our table delivers that exact
 // shape; if doBuild ever reverts to emitting z.tuple for named-tuple
 // components, this call fails to compile.
 const structAbi = [
@@ -213,16 +213,16 @@ describe('viem-compat: runtime loop over every fixture', () => {
   for (const [rel, abi] of Object.entries(FIXTURES)) {
     it(`${rel}: every function survives encodeFunctionData`, () => {
       const fns = filterFunctions(abi);
-      const barrel = buildSchemas(abi) as Record<string, z.ZodType<unknown> | undefined>;
+      const table = buildSchemas(abi) as Record<string, z.ZodType<unknown> | undefined>;
       for (const f of fns) {
         const sig = canonicalSignature(f);
-        const schema = barrel[sig];
-        if (!schema) throw new Error(`barrel missing ${sig}`);
+        const schema = table[sig];
+        if (!schema) throw new Error(`table missing ${sig}`);
         const placeholder = f.inputs.map(placeholderFor);
         const parsed = schema.parse(placeholder);
         // viem disambiguates overloads automatically from `args` shape; pass
         // the bare name in every case. Object.keys widens us out of the
-        // typed-barrel sharpness here; the runtime assertion is that viem
+        // typed-table sharpness here; the runtime assertion is that viem
         // accepts the parsed args without throwing.
         expect(() =>
           encodeFunctionData({
@@ -238,7 +238,7 @@ describe('viem-compat: runtime loop over every fixture', () => {
 
 // === TS-level: exhaustive mapped-type assertion per fixture ===
 //
-// For every function in every fixture, assert that the schema the barrel
+// For every function in every fixture, assert that the schema the table
 // returns parses to exactly abitype's `AbiParametersToPrimitiveTypes` of the
 // function's inputs — using strict structural equality, not assignability.
 // Equal<X, Y> is needed because plain `extends` is bidirectional-assignable
@@ -263,7 +263,7 @@ type Check<A extends Abi, S> = {
     : ['MISSING', Sig<F>];
 };
 
-// Two lines per fixture per plan: snapshot the barrel into a const so its
+// Two lines per fixture per plan: snapshot the table into a const so its
 // inferred type is locked, then assert Check shrinks to all `true`s. The
 // `{ [K]: true }` constraint is what trips when Check produces any of the
 // `'MISMATCH'` / `'NOT_ZOD'` / `'MISSING'` markers.

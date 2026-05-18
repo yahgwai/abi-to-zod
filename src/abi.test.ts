@@ -143,8 +143,8 @@ describe('canonicalSignature', () => {
 
 describe('buildSchemas table', () => {
   it('exposes name keys for unambiguous functions', () => {
-    const barrel = buildSchemas(simpleAbi);
-    const transfer = barrel.transfer;
+    const table = buildSchemas(simpleAbi);
+    const transfer = table.transfer;
     expect(transfer).toBeDefined();
     expect(transfer!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', '100'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -153,8 +153,8 @@ describe('buildSchemas table', () => {
   });
 
   it('exposes signature keys for every function', () => {
-    const barrel = buildSchemas(simpleAbi);
-    const balanceOf = barrel['balanceOf(address)'];
+    const table = buildSchemas(simpleAbi);
+    const balanceOf = table['balanceOf(address)'];
     expect(balanceOf).toBeDefined();
     expect(balanceOf!.parse(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'])).toEqual([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -165,32 +165,32 @@ describe('buildSchemas table', () => {
     // The typed SchemaTable rejects unknown keys at compile time. The runtime
     // test below is the safety net proving no stray props slipped in;
     // casting widens the read but the runtime shape is what we're asserting.
-    const barrel = buildSchemas(simpleAbi) as Record<string, unknown>;
-    expect(barrel['unknown']).toBeUndefined();
-    expect(barrel['transfer(uint256)']).toBeUndefined();
+    const table = buildSchemas(simpleAbi) as Record<string, unknown>;
+    expect(table['unknown']).toBeUndefined();
+    expect(table['transfer(uint256)']).toBeUndefined();
   });
 
   it('omits the name key when overloaded, but keeps both signature keys', () => {
-    const barrel = buildSchemas(overloadedAbi);
-    expect((barrel as Record<string, unknown>)['foo']).toBeUndefined();
-    expect(barrel['foo(uint256)']).toBeDefined();
-    expect(barrel['foo(address)']).toBeDefined();
-    expect(barrel['foo(uint256)']!.parse(['42'])).toEqual([42n]);
-    expect(barrel['foo(address)']!.parse([
+    const table = buildSchemas(overloadedAbi);
+    expect((table as Record<string, unknown>)['foo']).toBeUndefined();
+    expect(table['foo(uint256)']).toBeDefined();
+    expect(table['foo(address)']).toBeDefined();
+    expect(table['foo(uint256)']!.parse(['42'])).toEqual([42n]);
+    expect(table['foo(address)']!.parse([
       '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     ])).toEqual(['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045']);
   });
 
   it('ignores non-function entries (events, etc.)', () => {
-    const barrel = buildSchemas(simpleAbi) as Record<string, unknown>;
-    expect(barrel['Transfer']).toBeUndefined();
+    const table = buildSchemas(simpleAbi) as Record<string, unknown>;
+    expect(table['Transfer']).toBeUndefined();
   });
 
   it('handles zero-input functions via signature', () => {
-    const barrel = buildSchemas(overloadedAbi);
-    expect(barrel['bar()']).toBeDefined();
-    expect(barrel.bar).toBeDefined();
-    expect(barrel.bar!.parse([])).toEqual([]);
+    const table = buildSchemas(overloadedAbi);
+    expect(table['bar()']).toBeDefined();
+    expect(table.bar).toBeDefined();
+    expect(table.bar!.parse([])).toEqual([]);
   });
 
   it('throws on function entries with missing inputs', () => {

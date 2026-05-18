@@ -118,11 +118,11 @@ function runFixture(relPath: string, abi: Abi) {
       }
     });
 
-    it('resolves every function via barrel signature key', () => {
-      const barrel = buildSchemas(abi) as Record<string, unknown>;
+    it('resolves every function via table signature key', () => {
+      const table = buildSchemas(abi) as Record<string, unknown>;
       for (const f of functions) {
         const sig = canonicalSignature(f);
-        expect(barrel[sig], `barrel missing signature key ${sig}`).toBeDefined();
+        expect(table[sig], `table missing signature key ${sig}`).toBeDefined();
       }
     });
 

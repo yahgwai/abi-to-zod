@@ -66,7 +66,7 @@ function evalGenerated(source: string): {
     .replace(/ as `0x\$\{string\}`/g, '');
   // Replace `export const` with `const` so we can collect via locals.
   const noExports = js.replace(/^export const /gm, 'const ');
-  // The `as const` cast on the barrel is TS-only.
+  // The `as const` cast on the table is TS-only.
   const noAsConst = noExports.replace(/\}\s*as\s+const;/g, '};');
   const fn = new Function('z', `${noAsConst}\nreturn schemas;`);
   const schemas = fn(z) as Record<string, z.ZodType>;
@@ -118,7 +118,7 @@ describe('renderSchemas: equivalence with buildSchemas', () => {
       for (const f of fns) {
         const sig = canonicalSignature(f);
         const generated = schemas[sig];
-        expect(generated, `barrel missing signature key ${sig}`).toBeDefined();
+        expect(generated, `table missing signature key ${sig}`).toBeDefined();
         if (!generated) continue;
 
         let input: unknown[];
@@ -130,7 +130,7 @@ describe('renderSchemas: equivalence with buildSchemas', () => {
         }
 
         const runtime = (buildSchemas(abi) as Record<string, z.ZodType<unknown> | undefined>)[sig];
-        expect(runtime, `runtime barrel missing signature key ${sig}`).toBeDefined();
+        expect(runtime, `runtime table missing signature key ${sig}`).toBeDefined();
         if (!runtime) continue;
         const a = runtime.safeParse(input);
         const b = generated.safeParse(input);
@@ -180,7 +180,7 @@ describe('renderSchemas: header and structure', () => {
     expect(src).toContain(`'transfer(address,uint256)': transferSchema`);
   });
 
-  it('omits per-function export for overloaded names; inlines in barrel by signature only', () => {
+  it('omits per-function export for overloaded names; inlines in table by signature only', () => {
     const abi = [
       {
         type: 'function',
