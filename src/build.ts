@@ -29,10 +29,6 @@ export function buildParamSchema<const P extends AbiParameter>(
   >;
 }
 
-// Named struct components -> object; otherwise positional tuple. Mirrors
-// abitype's AbiComponentsToPrimitiveType so the runtime delivers what
-// buildParamSchema's typed return claims. Returns the typed (name, param)
-// pairs (not a boolean) so the "name is non-empty" narrowing reaches callers.
 export function pickNamedComponents(
   comps: readonly RawAbiParameter[],
 ): readonly (readonly [string, RawAbiParameter])[] | null {

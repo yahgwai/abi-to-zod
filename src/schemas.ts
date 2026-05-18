@@ -139,8 +139,6 @@ export type FunctionPlanEntry = {
   readonly overloaded: boolean;
 };
 
-// Shared by buildSchemas and the codegen: keeps overload detection in one
-// place so the runtime table and generated source can't disagree.
 export function planFunctions(abi: Abi): FunctionPlanEntry[] {
   const fns = filterFunctions(abi);
   const counts = new Map<string, number>();
