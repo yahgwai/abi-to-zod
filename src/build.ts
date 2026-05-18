@@ -4,7 +4,7 @@ import type {
   AbiParameterToPrimitiveType,
 } from 'abitype';
 import { parseType } from './type-parser.js';
-import { primitiveSchema, primitiveConstName } from './primitives.js';
+import { primitiveSchema } from './primitives.js';
 
 // Loose local shape kept for internal recursion and the renderer helpers,
 // which both operate on runtime-derived data (JSON-loaded ABIs). The public
@@ -41,7 +41,7 @@ export function buildParamSchema<const P extends AbitypeAbiParameter>(
 // Returning the typed pairs (rather than a boolean) carries the
 // "name is a non-empty string" narrowing through to the call sites,
 // so the object branch never needs an `as string` cast.
-function pickNamedComponents(
+export function pickNamedComponents(
   comps: readonly AbiParameter[],
 ): readonly (readonly [string, AbiParameter])[] | null {
   if (comps.length === 0) return null;
@@ -95,8 +95,6 @@ function doBuild(param: AbiParameter, path: readonly string[] = []): z.ZodType {
   }
 }
 
-export type PrimitiveResolver = (base: string) => string;
-
 export function canonicalType(param: AbiParameter): string {
   const { base, suffixes } = parseType(param.type);
   let s: string;
@@ -109,89 +107,4 @@ export function canonicalType(param: AbiParameter): string {
     s += suffix === null ? '[]' : `[${suffix}]`;
   }
   return s;
-}
-
-function commentFor(param: AbiParameter): string {
-  const sig = canonicalType(param);
-  const name = param.name ?? '';
-  return name ? `/* ${name}: ${sig} */ ` : `/* ${sig} */ `;
-}
-
-export function renderParamSchema(
-  param: AbiParameter,
-  resolver: PrimitiveResolver,
-  indent: string = '',
-  path: readonly string[] = [],
-): string {
-  try {
-    const { base, suffixes } = parseType(param.type);
-    let expr: string;
-    if (base === 'tuple') {
-      if (!param.components) {
-        throw new Error(`tuple type missing 'components'`);
-      }
-      const named = pickNamedComponents(param.components);
-      expr = named
-        ? renderObjectSource(named, resolver, indent, path)
-        : renderTupleSource(param.components, resolver, indent, path);
-    } else {
-      expr = resolver(base);
-    }
-    for (const suffix of suffixes) {
-      expr = suffix === null ? `z.array(${expr})` : `z.array(${expr}).length(${suffix})`;
-    }
-    return expr;
-  } catch (err) {
-    if (err instanceof BuildSchemaError) throw err;
-    const where = path.length > 0 ? path.join('.') : '<root>';
-    const inner = err instanceof Error ? err.message : String(err);
-    throw new BuildSchemaError(
-      `Failed to render schema at ${where} (type=${JSON.stringify(param.type)}, name=${JSON.stringify(param.name ?? '')}): ${inner}`,
-      { cause: err },
-    );
-  }
-}
-
-export function renderTupleSource(
-  params: readonly AbiParameter[],
-  resolver: PrimitiveResolver,
-  indent: string = '',
-  path: readonly string[] = [],
-): string {
-  if (params.length === 0) return 'z.tuple([])';
-  const childIndent = indent + '  ';
-  const items = params.map((p, i) => {
-    const expr = renderParamSchema(p, resolver, childIndent, [...path, `components[${i}]`]);
-    return `${childIndent}${commentFor(p)}${expr},`;
-  });
-  return `z.tuple([\n${items.join('\n')}\n${indent}])`;
-}
-
-export function renderObjectSource(
-  named: readonly (readonly [string, AbiParameter])[],
-  resolver: PrimitiveResolver,
-  indent: string = '',
-  path: readonly string[] = [],
-): string {
-  const childIndent = indent + '  ';
-  const items = named.map(([name, param], i) => {
-    const expr = renderParamSchema(param, resolver, childIndent, [...path, `components[${i}]`]);
-    return `${childIndent}${name}: ${expr},`;
-  });
-  return `z.strictObject({\n${items.join('\n')}\n${indent}})`;
-}
-
-export function collectPrimitives(params: readonly AbiParameter[]): Set<string> {
-  const used = new Set<string>();
-  for (const p of params) walkParam(p, used);
-  return used;
-}
-
-function walkParam(param: AbiParameter, used: Set<string>): void {
-  const { base } = parseType(param.type);
-  if (base === 'tuple') {
-    for (const c of param.components ?? []) walkParam(c, used);
-  } else {
-    used.add(primitiveConstName(base));
-  }
 }

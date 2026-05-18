@@ -3,11 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { type Abi, planFunctions } from './abi.js';
-import {
-  type AbiParameter,
-  collectPrimitives,
-  renderTupleSource,
-} from './build.js';
+import { type AbiParameter } from './build.js';
+import { collectPrimitives, renderTupleSource } from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
 
 let cachedVersion: string | undefined;
@@ -54,7 +51,7 @@ export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): strin
   out.push('');
 
   if (usedPrims.size > 0) {
-    out.push('// === Primitive schemas (edit once to customise all uses) ===');
+    out.push('// === Primitive schemas ===');
     out.push('');
     const sortedPrims = [...usedPrims].sort();
     for (const cname of sortedPrims) {
@@ -75,7 +72,7 @@ export function renderSchemas(abi: Abi, sourceName: string = '(unnamed)'): strin
     }
   }
 
-  out.push('// === Schema table (mirrors buildSchemas) ===');
+  out.push('// === Schema table ===');
   out.push('');
   out.push('export const schemas = {');
 

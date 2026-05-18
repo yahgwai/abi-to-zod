@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
+import { buildParamSchema, type AbiParameter } from './build.js';
 import {
-  buildParamSchema,
   renderParamSchema,
   renderTupleSource,
   collectPrimitives,
-  type AbiParameter,
-} from './build.js';
+} from './render.js';
 import { primitiveSource, primitiveConstName } from './primitives.js';
 
 // Build a "consts" object so eval'd source can resolve UINT256/etc. as locals.
