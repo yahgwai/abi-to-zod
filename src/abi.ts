@@ -114,16 +114,33 @@ type SignatureKeys<A extends Abi> = {
 
 export type Barrel<A extends Abi> = NameKeys<A> & SignatureKeys<A>;
 
-export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
+export type FunctionPlanEntry = {
+  readonly entry: AbiFunctionEntry;
+  readonly signature: string;
+  readonly overloaded: boolean;
+};
+
+// Shared "what functions are in this ABI" pass. Both abiToZod and the
+// codegen consume this; keeping the overload-detection rule in one place
+// means the runtime table and the generated source can't disagree on
+// which names are unambiguous.
+export function planFunctions(abi: Abi): FunctionPlanEntry[] {
   const fns = filterFunctions(abi);
   const counts = new Map<string, number>();
   for (const f of fns) counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
+  return fns.map((entry) => ({
+    entry,
+    signature: canonicalSignature(entry),
+    overloaded: (counts.get(entry.name) ?? 0) > 1,
+  }));
+}
 
+export function abiToZod<const A extends Abi>(abi: A): Barrel<A> {
   const out: Record<string, z.ZodType<unknown>> = {};
-  for (const f of fns) {
-    const schema = abiFunctionToZod(f) as z.ZodType<unknown>;
-    out[canonicalSignature(f)] = schema;
-    if (counts.get(f.name) === 1) out[f.name] = schema;
+  for (const { entry, signature, overloaded } of planFunctions(abi)) {
+    const schema = abiFunctionToZod(entry) as z.ZodType<unknown>;
+    out[signature] = schema;
+    if (!overloaded) out[entry.name] = schema;
   }
   return out as Barrel<A>;
 }

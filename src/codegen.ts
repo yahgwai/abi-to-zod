@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type Abi, canonicalSignature, filterFunctions } from './abi.js';
+import { type Abi, planFunctions } from './abi.js';
 import {
   type AbiParameter,
   collectPrimitives,
@@ -35,24 +35,15 @@ function constNameToBase(name: string): string {
 }
 
 export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
-  const functions = filterFunctions(abi);
-
-  const nameCount = new Map<string, number>();
-  for (const f of functions) {
-    nameCount.set(f.name, (nameCount.get(f.name) ?? 0) + 1);
-  }
+  const plan = planFunctions(abi);
 
   const allInputs: AbiParameter[] = [];
-  for (const f of functions) allInputs.push(...f.inputs);
+  for (const { entry } of plan) allInputs.push(...entry.inputs);
   const usedPrims = collectPrimitives(allInputs);
 
-  const sortedFns = functions
-    .map((entry) => ({
-      entry,
-      sig: canonicalSignature(entry),
-      overloaded: (nameCount.get(entry.name) ?? 0) > 1,
-    }))
-    .sort((a, b) => (a.sig < b.sig ? -1 : a.sig > b.sig ? 1 : 0));
+  const sortedFns = [...plan].sort((a, b) =>
+    a.signature < b.signature ? -1 : a.signature > b.signature ? 1 : 0,
+  );
 
   const out: string[] = [];
 
@@ -75,9 +66,9 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
   if (sortedFns.length > 0) {
     out.push('// === Function schemas ===');
     out.push('');
-    for (const { entry, sig, overloaded } of sortedFns) {
+    for (const { entry, signature, overloaded } of sortedFns) {
       if (overloaded) continue;
-      out.push(`// ${sig}`);
+      out.push(`// ${signature}`);
       const body = renderTupleSource(entry.inputs, primitiveConstName);
       out.push(`export const ${entry.name}Schema = ${body};`);
       out.push('');
@@ -98,7 +89,7 @@ export function generate(abi: Abi, sourceName: string = '(unnamed)'): string {
 
   const sigEntries = sortedFns
     .map((f) => ({
-      key: f.sig,
+      key: f.signature,
       ref: f.overloaded
         ? renderTupleSource(f.entry.inputs, primitiveConstName, '  ')
         : `${f.entry.name}Schema`,
